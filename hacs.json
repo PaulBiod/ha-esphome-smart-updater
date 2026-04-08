@@ -1,0 +1,5 @@
+{
+  "name": "ESPHome Smart Updater",
+  "content_in_root": false,
+  "domains": ["esphome_smart_updater"]
+}
