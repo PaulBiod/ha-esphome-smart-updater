@@ -1,0 +1,12 @@
+{
+  "domain": "esphome_smart_updater",
+  "name": "ESPHome Smart Updater",
+  "version": "0.1.0",
+  "documentation": "https://github.com/PaulBiod/ha-esphome-smart-updater",
+  "issue_tracker": "https://github.com/PaulBiod/ha-esphome-smart-updater/issues",
+  "dependencies": [],
+  "codeowners": ["@PaulBiod"],
+  "requirements": [],
+  "iot_class": "local_push",
+  "config_flow": true
+}
