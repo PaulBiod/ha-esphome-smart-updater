@@ -1,31 +1,73 @@
 from homeassistant.components.sensor import SensorEntity
-from .coordinator import CampaignManager, DOMAIN
+from .const import DOMAIN
 
 
 async def async_setup_entry(hass, entry, async_add_entities):
-    manager: CampaignManager = hass.data[DOMAIN]
+    m = hass.data[DOMAIN][entry.entry_id]
 
     async_add_entities([
-        StateSensor(manager),
-        CurrentSensor(manager),
-    ], True)
+        State(m),
+        Current(m),
+        Progress(m),
+        Remaining(m),
+        Done(m),
+        Failed(m),
+        Eta(m),
+        Delay(m),
+    ])
 
 
-class StateSensor(SensorEntity):
-    def __init__(self, manager):
-        self.manager = manager
-        self._attr_name = "ESPHome Smart Updater State"
+class Base(SensorEntity):
+    def __init__(self, m):
+        self.m = m
 
+    async def async_added_to_hass(self):
+        self.m.add_listener(self.async_write_ha_state)
+
+
+class State(Base):
+    _attr_name = "ESU State"
     @property
-    def state(self):
-        return "running" if self.manager.running else "idle"
+    def state(self): return self.m.state
 
 
-class CurrentSensor(SensorEntity):
-    def __init__(self, manager):
-        self.manager = manager
-        self._attr_name = "ESPHome Smart Updater Current"
-
+class Current(Base):
+    _attr_name = "ESU Current"
     @property
-    def state(self):
-        return self.manager.current or "none"
+    def state(self): return self.m.current
+
+
+class Progress(Base):
+    _attr_name = "ESU Progress"
+    @property
+    def state(self): return self.m.progress()
+
+
+class Remaining(Base):
+    _attr_name = "ESU Remaining"
+    @property
+    def state(self): return len(self.m.queue)
+
+
+class Done(Base):
+    _attr_name = "ESU Done"
+    @property
+    def state(self): return len(self.m.done)
+
+
+class Failed(Base):
+    _attr_name = "ESU Failed"
+    @property
+    def state(self): return len(self.m.failed)
+
+
+class Eta(Base):
+    _attr_name = "ESU ETA"
+    @property
+    def state(self): return self.m.eta()
+
+
+class Delay(Base):
+    _attr_name = "ESU Delay"
+    @property
+    def state(self): return self.m.delay
