@@ -1,25 +1,17 @@
-from __future__ import annotations
-
 from homeassistant.components.button import ButtonEntity
-from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
-from homeassistant.helpers.entity_platform import AddEntitiesCallback
-
-from .const import DOMAIN
+from .coordinator import CampaignManager, DOMAIN
 
 
-async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
-    async_add_entities([ESPHomeSmartUpdaterStartButton(hass, entry)])
+async def async_setup_entry(hass, entry, async_add_entities):
+    manager: CampaignManager = hass.data[DOMAIN]
+
+    async_add_entities([StartButton(manager)], True)
 
 
-class ESPHomeSmartUpdaterStartButton(ButtonEntity):
-    _attr_name = "ESPHome Smart Updater Start"
-    _attr_unique_id = "esphome_smart_updater_start"
+class StartButton(ButtonEntity):
+    def __init__(self, manager):
+        self.manager = manager
+        self._attr_name = "ESPHome Smart Updater Start"
 
-    def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
-        self.hass = hass
-        self.entry = entry
-
-    async def async_press(self) -> None:
-        manager = self.hass.data[DOMAIN][self.entry.entry_id]
-        await manager.start()
+    async def async_press(self):
+        await self.manager.start()
