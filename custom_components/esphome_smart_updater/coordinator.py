@@ -17,6 +17,7 @@ from .const import (
     CONF_DELAY_MIN,
     CONF_LOAD_SENSOR,
     CONF_MAX_ITEMS,
+    CONF_RESTORE_RESUME_DELAY,
     CONF_TEMP_SENSOR,
     CONF_THROTTLE,
     CONF_TIMEOUT,
@@ -175,7 +176,9 @@ class CampaignManager:
             self.state = "paused"
             self.last_error = "restored_after_restart"
             self.restored_after_restart = True
-            self.resume_at_ts = int(time.time()) + DEFAULT_RESTORE_RESUME_DELAY
+            self.resume_at_ts = int(time.time()) + int(
+                self._get_option(CONF_RESTORE_RESUME_DELAY, DEFAULT_RESTORE_RESUME_DELAY)
+            )
 
             self._push()
             self._restore_resume_task = self.hass.async_create_task(self._async_delayed_restore_resume())
@@ -306,7 +309,15 @@ class CampaignManager:
 
             result.append(entity_id)
 
+        result.sort()
         return result
+
+    @property
+    def pending_updates_count(self) -> int:
+        return len(self.pending_updates_entities())
+
+    def pending_updates_entities(self) -> list[str]:
+        return self._find_esphome_updates()
 
     def _compute_delay(self) -> int:
         delay_min = int(self._get_option(CONF_DELAY_MIN, DEFAULT_DELAY_MIN))
