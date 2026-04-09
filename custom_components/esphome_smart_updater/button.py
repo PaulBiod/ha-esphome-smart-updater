@@ -1,14 +1,16 @@
 from __future__ import annotations
 
-from homeassistant.components.sensor import SensorEntity
+from homeassistant.components.button import ButtonEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import (
-    CAMPAIGN_SENSOR_UNIQUE_ID,
+    BUTTON_PAUSE_UNIQUE_ID,
+    BUTTON_RESUME_UNIQUE_ID,
+    BUTTON_START_UNIQUE_ID,
+    BUTTON_STOP_UNIQUE_ID,
     DOMAIN,
-    PENDING_UPDATES_SENSOR_UNIQUE_ID,
 )
 
 
@@ -20,13 +22,15 @@ async def async_setup_entry(
     manager = hass.data[DOMAIN][entry.entry_id]
     async_add_entities(
         [
-            ESPHomeSmartUpdaterCampaignSensor(manager),
-            ESPHomeSmartUpdaterPendingUpdatesSensor(manager),
+            ESUStartButton(manager),
+            ESUPauseButton(manager),
+            ESUResumeButton(manager),
+            ESUStopButton(manager),
         ]
     )
 
 
-class _BaseESUSensor(SensorEntity):
+class _BaseButton(ButtonEntity):
     _attr_should_poll = False
 
     def __init__(self, manager) -> None:
@@ -42,33 +46,37 @@ class _BaseESUSensor(SensorEntity):
             self._remove_listener = None
 
 
-class ESPHomeSmartUpdaterCampaignSensor(_BaseESUSensor):
-    _attr_name = "ESPHome Smart Updater Campaign"
-    _attr_unique_id = CAMPAIGN_SENSOR_UNIQUE_ID
-    _attr_icon = "mdi:upload-network"
+class ESUStartButton(_BaseButton):
+    _attr_name = "ESU Start"
+    _attr_unique_id = BUTTON_START_UNIQUE_ID
+    _attr_icon = "mdi:play"
 
-    @property
-    def native_value(self):
-        return self.manager.state
-
-    @property
-    def extra_state_attributes(self):
-        return self.manager.campaign_attributes()
+    async def async_press(self) -> None:
+        await self.manager.async_start()
 
 
-class ESPHomeSmartUpdaterPendingUpdatesSensor(_BaseESUSensor):
-    _attr_name = "ESPHome Smart Updater Pending Updates"
-    _attr_unique_id = PENDING_UPDATES_SENSOR_UNIQUE_ID
-    _attr_icon = "mdi:update"
+class ESUPauseButton(_BaseButton):
+    _attr_name = "ESU Pause"
+    _attr_unique_id = BUTTON_PAUSE_UNIQUE_ID
+    _attr_icon = "mdi:pause"
 
-    @property
-    def native_value(self):
-        return self.manager.pending_updates_count
+    async def async_press(self) -> None:
+        await self.manager.async_pause()
 
-    @property
-    def extra_state_attributes(self):
-        entities = self.manager.pending_updates_entities()
-        return {
-            "pending_updates": entities,
-            "total": len(entities),
-        }
+
+class ESUResumeButton(_BaseButton):
+    _attr_name = "ESU Resume"
+    _attr_unique_id = BUTTON_RESUME_UNIQUE_ID
+    _attr_icon = "mdi:play"
+
+    async def async_press(self) -> None:
+        await self.manager.async_resume(manual=True)
+
+
+class ESUStopButton(_BaseButton):
+    _attr_name = "ESU Stop"
+    _attr_unique_id = BUTTON_STOP_UNIQUE_ID
+    _attr_icon = "mdi:stop"
+
+    async def async_press(self) -> None:
+        await self.manager.async_stop()
