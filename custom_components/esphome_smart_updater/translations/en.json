@@ -12,6 +12,7 @@
         "data": {
           "timeout": "Failure timeout (seconds)",
           "max_items": "Maximum devices per batch",
+          "restore_resume_delay": "Delay before resuming after Home Assistant restart",
           "throttle": "Enable automatic delay adaptation"
         }
       },
@@ -21,7 +22,7 @@
         "data": {
           "cpu_sensor": "CPU usage sensor (%)",
           "temp_sensor": "CPU temperature sensor (°C)",
-          "load_sensor": "System load sensor",
+          "load_sensor": "System load sensor (1 min load)",
           "delay_min": "Minimum delay between updates (s)",
           "delay_max": "Maximum delay between updates (s)"
         }
