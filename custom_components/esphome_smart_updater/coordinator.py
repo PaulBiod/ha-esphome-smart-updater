@@ -23,6 +23,7 @@ from .const import (
     DEFAULT_DELAY_MAX,
     DEFAULT_DELAY_MIN,
     DEFAULT_MAX_ITEMS,
+    DEFAULT_RESTORE_RESUME_DELAY,
     DEFAULT_TIMEOUT,
     STORAGE_KEY,
     STORAGE_VERSION,
@@ -38,6 +39,8 @@ class CampaignManager:
 
         self._listeners: list[Callable[[], None]] = []
         self._task: asyncio.Task | None = None
+        self._save_task: asyncio.Task | None = None
+        self._restore_resume_task: asyncio.Task | None = None
         self._shutdown = False
 
         self._store = Store[dict[str, Any]](
@@ -45,7 +48,6 @@ class CampaignManager:
             STORAGE_VERSION,
             f"{STORAGE_KEY}_{entry.entry_id}",
         )
-        self._save_task: asyncio.Task | None = None
 
         self.state = "idle"
         self.queue: list[str] = []
@@ -74,11 +76,21 @@ class CampaignManager:
         self.temp = None
         self.load_1m = None
 
+        self.restored_after_restart = False
+        self.resume_at_ts = 0
+
     async def async_initialize(self) -> None:
         await self._async_restore_state()
 
     async def async_shutdown(self) -> None:
         self._shutdown = True
+
+        if self._restore_resume_task and not self._restore_resume_task.done():
+            self._restore_resume_task.cancel()
+            try:
+                await self._restore_resume_task
+            except asyncio.CancelledError:
+                pass
 
         if self._task and not self._task.done():
             self._task.cancel()
@@ -136,9 +148,8 @@ class CampaignManager:
 
         if self.state in ("running", "paused"):
             current = self.current_update_entity or self.current
-            if current:
-                if current not in self.remaining and current not in self.done and current not in self.failed:
-                    self.remaining.insert(0, current)
+            if current and current not in self.remaining and current not in self.done and current not in self.failed:
+                self.remaining.insert(0, current)
 
             self.current = ""
             self.current_update_entity = ""
@@ -146,9 +157,33 @@ class CampaignManager:
             self.stop_requested = False
             self.state = "paused"
             self.last_error = "restored_after_restart"
+            self.restored_after_restart = True
+            self.resume_at_ts = int(time.time()) + DEFAULT_RESTORE_RESUME_DELAY
+
+            self._push()
+            self._restore_resume_task = self.hass.async_create_task(self._async_delayed_restore_resume())
+            return
 
         self._update_metrics()
         self._push()
+
+    async def _async_delayed_restore_resume(self) -> None:
+        try:
+            while not self._shutdown:
+                remaining = self.resume_at_ts - int(time.time())
+                if remaining <= 0:
+                    break
+                await asyncio.sleep(min(5, remaining))
+
+            if self._shutdown:
+                return
+
+            if self.state == "paused" and self.restored_after_restart and self.remaining and not self.stop_requested:
+                await self.async_resume(from_restore=True)
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            _LOGGER.exception("Failed delayed restore resume")
 
     def _snapshot(self) -> dict[str, Any]:
         return {
@@ -174,6 +209,8 @@ class CampaignManager:
             "cpu": self.cpu,
             "temp": self.temp,
             "load_1m": self.load_1m,
+            "restored_after_restart": self.restored_after_restart,
+            "resume_at_ts": self.resume_at_ts,
         }
 
     def _apply_snapshot(self, data: dict[str, Any]) -> None:
@@ -200,9 +237,7 @@ class CampaignManager:
             self.avg_duration_s = 0
 
         self.eta_s = int(data.get("eta_s", 0) or 0)
-        self.delay_s = int(
-            data.get("delay_s", self._get_option(CONF_DELAY_MIN, DEFAULT_DELAY_MIN)) or 0
-        )
+        self.delay_s = int(data.get("delay_s", self._get_option(CONF_DELAY_MIN, DEFAULT_DELAY_MIN)) or 0)
 
         self.pause_requested = bool(data.get("pause_requested", False))
         self.stop_requested = bool(data.get("stop_requested", False))
@@ -211,6 +246,9 @@ class CampaignManager:
         self.cpu = data.get("cpu")
         self.temp = data.get("temp")
         self.load_1m = data.get("load_1m")
+
+        self.restored_after_restart = bool(data.get("restored_after_restart", False))
+        self.resume_at_ts = int(data.get("resume_at_ts", 0) or 0)
 
     def _get_option(self, key: str, default):
         return self.entry.options.get(key, default)
@@ -269,7 +307,7 @@ class CampaignManager:
 
         stress_cpu = (cpu / 100.0) if cpu is not None else 0.0
         stress_load = (load / 4.0) if load is not None else 0.0
-        stress_temp = ((temp - 50.0) / 25.0) if temp is not None and temp > 50 else 0.0
+        stress_temp = (((temp - 50.0) / 25.0) if temp is not None and temp > 50 else 0.0)
 
         stress = max(stress_cpu, stress_load, stress_temp)
         stress = max(0.0, min(1.0, stress))
@@ -319,6 +357,8 @@ class CampaignManager:
         self.pause_requested = False
         self.stop_requested = False
         self.last_error = ""
+        self.restored_after_restart = False
+        self.resume_at_ts = 0
 
         self.state = "running"
         self._push()
@@ -328,15 +368,19 @@ class CampaignManager:
     async def async_pause(self) -> None:
         if self.state == "running":
             self.pause_requested = True
+            self.restored_after_restart = False
+            self.resume_at_ts = 0
             self._push()
 
-    async def async_resume(self) -> None:
+    async def async_resume(self, from_restore: bool = False) -> None:
         if self.state != "paused":
             return
 
         self.pause_requested = False
         self.stop_requested = False
         self.state = "running"
+        self.restored_after_restart = from_restore
+        self.resume_at_ts = 0
         self._push()
 
         self._task = self.hass.async_create_task(self._run())
@@ -344,6 +388,8 @@ class CampaignManager:
     async def async_stop(self) -> None:
         if self.state in ("running", "paused"):
             self.stop_requested = True
+            self.restored_after_restart = False
+            self.resume_at_ts = 0
             if self.state == "paused":
                 await self._finish_and_reset(stopped=True)
             else:
@@ -517,6 +563,8 @@ class CampaignManager:
         self.cpu = None
         self.temp = None
         self.load_1m = None
+        self.restored_after_restart = False
+        self.resume_at_ts = 0
 
         self._push()
 
@@ -543,4 +591,6 @@ class CampaignManager:
             "cpu": self.cpu,
             "temp": self.temp,
             "load_1m": self.load_1m,
+            "restored_after_restart": self.restored_after_restart,
+            "resume_at_ts": self.resume_at_ts,
         }
