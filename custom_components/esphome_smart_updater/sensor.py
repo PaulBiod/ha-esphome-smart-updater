@@ -1,73 +1,43 @@
+from __future__ import annotations
+
 from homeassistant.components.sensor import SensorEntity
-from .const import DOMAIN
+from homeassistant.config_entries import ConfigEntry
+from homeassistant.core import HomeAssistant
+from homeassistant.helpers.entity_platform import AddEntitiesCallback
+
+from .const import CAMPAIGN_SENSOR_UNIQUE_ID, DOMAIN
 
 
-async def async_setup_entry(hass, entry, async_add_entities):
-    m = hass.data[DOMAIN][entry.entry_id]
-
-    async_add_entities([
-        State(m),
-        Current(m),
-        Progress(m),
-        Remaining(m),
-        Done(m),
-        Failed(m),
-        Eta(m),
-        Delay(m),
-    ])
+async def async_setup_entry(
+    hass: HomeAssistant,
+    entry: ConfigEntry,
+    async_add_entities: AddEntitiesCallback,
+) -> None:
+    manager = hass.data[DOMAIN][entry.entry_id]
+    async_add_entities([ESPHomeSmartUpdaterCampaignSensor(manager)])
 
 
-class Base(SensorEntity):
-    def __init__(self, m):
-        self.m = m
+class ESPHomeSmartUpdaterCampaignSensor(SensorEntity):
+    _attr_name = "ESPHome Smart Updater Campaign"
+    _attr_unique_id = CAMPAIGN_SENSOR_UNIQUE_ID
+    _attr_icon = "mdi:upload-network"
 
-    async def async_added_to_hass(self):
-        self.m.add_listener(self.async_write_ha_state)
+    def __init__(self, manager) -> None:
+        self.manager = manager
+        self._remove_listener = None
 
+    async def async_added_to_hass(self) -> None:
+        self._remove_listener = self.manager.add_listener(self.async_write_ha_state)
 
-class State(Base):
-    _attr_name = "ESU State"
+    async def async_will_remove_from_hass(self) -> None:
+        if self._remove_listener is not None:
+            self._remove_listener()
+            self._remove_listener = None
+
     @property
-    def state(self): return self.m.state
+    def native_value(self):
+        return self.manager.state
 
-
-class Current(Base):
-    _attr_name = "ESU Current"
     @property
-    def state(self): return self.m.current
-
-
-class Progress(Base):
-    _attr_name = "ESU Progress"
-    @property
-    def state(self): return self.m.progress()
-
-
-class Remaining(Base):
-    _attr_name = "ESU Remaining"
-    @property
-    def state(self): return len(self.m.queue)
-
-
-class Done(Base):
-    _attr_name = "ESU Done"
-    @property
-    def state(self): return len(self.m.done)
-
-
-class Failed(Base):
-    _attr_name = "ESU Failed"
-    @property
-    def state(self): return len(self.m.failed)
-
-
-class Eta(Base):
-    _attr_name = "ESU ETA"
-    @property
-    def state(self): return self.m.eta()
-
-
-class Delay(Base):
-    _attr_name = "ESU Delay"
-    @property
-    def state(self): return self.m.delay
+    def extra_state_attributes(self):
+        return self.manager.campaign_attributes()
