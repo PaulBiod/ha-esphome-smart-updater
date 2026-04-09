@@ -8,7 +8,7 @@
     "step": {
       "init": {
         "title": "Réglages généraux",
-        "description": "Configure le comportement global des campagnes OTA ESPHome.",
+        "description": "Configurer le comportement global des campagnes OTA ESPHome.",
         "data": {
           "timeout": "Timeout avant échec (secondes)",
           "max_items": "Nombre maximum d'appareils par lot",
@@ -17,13 +17,13 @@
       },
       "throttle": {
         "title": "Adaptation automatique du délai",
-        "description": "Choisis les capteurs à utiliser pour estimer la charge du serveur, puis définis les délais mini et maxi entre deux mises à jour.",
+        "description": "Choisir les capteurs utilisés pour estimer la charge du serveur, puis définir les délais minimum et maximum entre deux mises à jour.",
         "data": {
           "cpu_sensor": "Capteur d'utilisation CPU (%)",
           "temp_sensor": "Capteur de température CPU (°C)",
-          "load_sensor": "Capteur de charge système (load)",
-          "delay_min": "Délai minimum entre deux updates (s)",
-          "delay_max": "Délai maximum entre deux updates (s)"
+          "load_sensor": "Capteur de charge système (load 1 mn)",
+          "delay_min": "Délai minimum entre deux mises à jour (s)",
+          "delay_max": "Délai maximum entre deux mises à jour (s)"
         }
       }
     }
