@@ -53,7 +53,7 @@ class CampaignManager:
         self.duration_s = 0
         self.avg_duration_s = 0
         self.eta_s = 0
-        self.delay_s = self._get_option(CONF_DELAY_MIN, DEFAULT_DELAY_MIN)
+        self.delay_s = int(self._get_option(CONF_DELAY_MIN, DEFAULT_DELAY_MIN))
 
         self.pause_requested = False
         self.stop_requested = False
@@ -105,13 +105,13 @@ class CampaignManager:
 
         for entity_id in self.hass.states.async_entity_ids("update"):
             st = self.hass.states.get(entity_id)
-            entry = ent_reg.async_get(entity_id)
+            reg_entry = ent_reg.async_get(entity_id)
 
-            if st is None or entry is None:
+            if st is None or reg_entry is None:
                 continue
             if st.state != "on":
                 continue
-            if entry.platform != "esphome":
+            if reg_entry.platform != "esphome":
                 continue
 
             result.append(entity_id)
@@ -124,6 +124,9 @@ class CampaignManager:
         throttle = bool(self._get_option(CONF_THROTTLE, False))
 
         if not throttle:
+            self.cpu = None
+            self.temp = None
+            self.load_1m = None
             return delay_min
 
         cpu = self._get_float_state(self._get_option(CONF_CPU_SENSOR, ""))
@@ -137,13 +140,14 @@ class CampaignManager:
         if cpu is None and temp is None and load is None:
             return delay_min
 
-        stress_cpu = (cpu / 100.0) if cpu is not None else 0
-        stress_load = (load / 4.0) if load is not None else 0
-        stress_temp = (((temp - 50) / 25.0) if temp is not None and temp > 50 else 0)
+        stress_cpu = (cpu / 100.0) if cpu is not None else 0.0
+        stress_load = (load / 4.0) if load is not None else 0.0
+        stress_temp = (((temp - 50.0) / 25.0) if temp is not None and temp > 50 else 0.0)
 
         stress = max(stress_cpu, stress_load, stress_temp)
-        target_delay = int(delay_min + stress * (delay_max - delay_min))
+        stress = max(0.0, min(1.0, stress))
 
+        target_delay = int(delay_min + stress * (delay_max - delay_min))
         prev_delay = self.delay_s or delay_min
 
         if target_delay > prev_delay:
@@ -158,7 +162,9 @@ class CampaignManager:
 
         updates = self._find_esphome_updates()
         max_items = int(self._get_option(CONF_MAX_ITEMS, DEFAULT_MAX_ITEMS))
-        updates = updates[:max_items]
+
+        if max_items > 0:
+            updates = updates[:max_items]
 
         if not updates:
             self.last_error = "no_updates_detected"
@@ -242,9 +248,12 @@ class CampaignManager:
                 self.current_update_entity = ""
                 self._update_metrics()
                 self._push()
+
                 if await self._handle_pause_stop():
                     return
-                await self._delay_between_items()
+
+                if self.remaining:
+                    await self._delay_between_items()
                 continue
 
             start_wait = time.time()
@@ -343,7 +352,7 @@ class CampaignManager:
         ]
 
         if failed_names:
-            message_lines.extend(["", "Devices en échec :"])
+            message_lines.extend(["", "Appareils en échec :"])
             message_lines.extend([f"- {name}" for name in failed_names])
 
         if self.last_error:
