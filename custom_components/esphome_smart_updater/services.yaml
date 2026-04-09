@@ -1,0 +1,19 @@
+start_campaign:
+  name: Start campaign
+  description: Start an ESPHome Smart Updater campaign.
+
+pause_campaign:
+  name: Pause campaign
+  description: Request pause for the current campaign.
+
+resume_campaign:
+  name: Resume campaign
+  description: Resume a paused campaign.
+
+stop_campaign:
+  name: Stop campaign
+  description: Stop the current campaign.
+
+clear_report:
+  name: Clear report
+  description: Clear the last stored campaign report and purge the stored campaign lists.
