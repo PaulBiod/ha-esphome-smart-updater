@@ -25,5 +25,13 @@ BUTTON_PAUSE_UNIQUE_ID = "esu_pause"
 BUTTON_RESUME_UNIQUE_ID = "esu_resume"
 BUTTON_STOP_UNIQUE_ID = "esu_stop"
 
+SERVICE_START_CAMPAIGN = "start_campaign"
+SERVICE_PAUSE_CAMPAIGN = "pause_campaign"
+SERVICE_RESUME_CAMPAIGN = "resume_campaign"
+SERVICE_STOP_CAMPAIGN = "stop_campaign"
+SERVICE_CLEAR_REPORT = "clear_report"
+
+EVENT_CAMPAIGN_FINISHED = "esphome_smart_updater_campaign_finished"
+
 STORAGE_VERSION = 1
 STORAGE_KEY = f"{DOMAIN}_campaign"
