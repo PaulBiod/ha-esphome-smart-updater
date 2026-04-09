@@ -44,7 +44,7 @@ class CampaignManager:
 
             updates.append(eid)
 
-        updates = updates[:3]
+        updates = updates[:1]
         _LOGGER.warning("ESU ESPHome queue: %s", updates)
 
         self.queue = updates
