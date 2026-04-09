@@ -11,12 +11,14 @@ from .const import (
     CONF_DELAY_MIN,
     CONF_LOAD_SENSOR,
     CONF_MAX_ITEMS,
+    CONF_RESTORE_RESUME_DELAY,
     CONF_TEMP_SENSOR,
     CONF_THROTTLE,
     CONF_TIMEOUT,
     DEFAULT_DELAY_MAX,
     DEFAULT_DELAY_MIN,
     DEFAULT_MAX_ITEMS,
+    DEFAULT_RESTORE_RESUME_DELAY,
     DEFAULT_TIMEOUT,
     DOMAIN,
 )
@@ -84,6 +86,18 @@ class ESPHomeSmartUpdaterOptionsFlow(config_entries.OptionsFlow):
                         )
                     ),
                     vol.Optional(
+                        CONF_RESTORE_RESUME_DELAY,
+                        default=options.get(CONF_RESTORE_RESUME_DELAY, DEFAULT_RESTORE_RESUME_DELAY),
+                    ): selector.NumberSelector(
+                        selector.NumberSelectorConfig(
+                            min=0,
+                            max=1800,
+                            step=30,
+                            mode=selector.NumberSelectorMode.BOX,
+                            unit_of_measurement="s",
+                        )
+                    ),
+                    vol.Optional(
                         CONF_THROTTLE,
                         default=options.get(CONF_THROTTLE, False),
                     ): selector.BooleanSelector(),
@@ -138,6 +152,7 @@ class ESPHomeSmartUpdaterOptionsFlow(config_entries.OptionsFlow):
                             max=120,
                             step=1,
                             mode=selector.NumberSelectorMode.BOX,
+                            unit_of_measurement="s",
                         )
                     ),
                     vol.Optional(
@@ -149,6 +164,7 @@ class ESPHomeSmartUpdaterOptionsFlow(config_entries.OptionsFlow):
                             max=300,
                             step=1,
                             mode=selector.NumberSelectorMode.BOX,
+                            unit_of_measurement="s",
                         )
                     ),
                 }
