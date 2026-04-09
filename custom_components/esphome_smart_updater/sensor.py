@@ -27,6 +27,8 @@ async def async_setup_entry(
 
 
 class _BaseESUSensor(SensorEntity):
+    _attr_should_poll = False
+
     def __init__(self, manager) -> None:
         self.manager = manager
         self._remove_listener = None
