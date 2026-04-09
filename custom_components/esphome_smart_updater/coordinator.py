@@ -157,15 +157,17 @@ class CampaignManager:
         }
 
     async def async_start(self) -> None:
-        await self._async_refresh_pending_updates()
+    await self._async_refresh_pending_updates()
 
-        updates = self._pending_update_entities[: self.entry.options.get(CONF_MAX_ITEMS, DEFAULT_MAX_ITEMS)]
-        if not updates:
-            self._reset_runtime_state()
-            self.last_error = "no_updates_detected"
-            await self._async_save()
-            self._notify()
-            return
+    max_items = int(self.entry.options.get(CONF_MAX_ITEMS, DEFAULT_MAX_ITEMS) or DEFAULT_MAX_ITEMS)
+    updates = self._pending_update_entities[:max_items]
+
+    if not updates:
+        self._reset_runtime_state()
+        self.last_error = "no_updates_detected"
+        await self._async_save()
+        self._notify()
+        return
 
         self.state = "running"
         self.queue = list(updates)
