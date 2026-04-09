@@ -38,10 +38,14 @@ class ESPHomeSmartUpdaterConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     @staticmethod
     def async_get_options_flow(config_entry):
-        return ESPHomeSmartUpdaterOptionsFlow()
+        return ESPHomeSmartUpdaterOptionsFlow(config_entry)
 
 
 class ESPHomeSmartUpdaterOptionsFlow(config_entries.OptionsFlow):
+    def __init__(self, config_entry):
+        self.config_entry = config_entry
+        self.options_data = {}
+
     async def async_step_init(self, user_input=None):
         options = dict(self.config_entry.options)
 
@@ -87,7 +91,10 @@ class ESPHomeSmartUpdaterOptionsFlow(config_entries.OptionsFlow):
                     ),
                     vol.Optional(
                         CONF_RESTORE_RESUME_DELAY,
-                        default=options.get(CONF_RESTORE_RESUME_DELAY, DEFAULT_RESTORE_RESUME_DELAY),
+                        default=options.get(
+                            CONF_RESTORE_RESUME_DELAY,
+                            DEFAULT_RESTORE_RESUME_DELAY,
+                        ),
                     ): selector.NumberSelector(
                         selector.NumberSelectorConfig(
                             min=0,
@@ -120,28 +127,19 @@ class ESPHomeSmartUpdaterOptionsFlow(config_entries.OptionsFlow):
                         CONF_CPU_SENSOR,
                         default=options.get(CONF_CPU_SENSOR),
                     ): selector.EntitySelector(
-                        selector.EntitySelectorConfig(
-                            domain="sensor",
-                            multiple=False,
-                        )
+                        selector.EntitySelectorConfig(domain="sensor", multiple=False)
                     ),
                     vol.Optional(
                         CONF_TEMP_SENSOR,
                         default=options.get(CONF_TEMP_SENSOR),
                     ): selector.EntitySelector(
-                        selector.EntitySelectorConfig(
-                            domain="sensor",
-                            multiple=False,
-                        )
+                        selector.EntitySelectorConfig(domain="sensor", multiple=False)
                     ),
                     vol.Optional(
                         CONF_LOAD_SENSOR,
                         default=options.get(CONF_LOAD_SENSOR),
                     ): selector.EntitySelector(
-                        selector.EntitySelectorConfig(
-                            domain="sensor",
-                            multiple=False,
-                        )
+                        selector.EntitySelectorConfig(domain="sensor", multiple=False)
                     ),
                     vol.Optional(
                         CONF_DELAY_MIN,
