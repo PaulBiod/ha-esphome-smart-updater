@@ -4,10 +4,12 @@ import asyncio
 import logging
 import time
 from collections.abc import Callable
+from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers.storage import Store
 
 from .const import (
     CONF_CPU_SENSOR,
@@ -22,6 +24,8 @@ from .const import (
     DEFAULT_DELAY_MIN,
     DEFAULT_MAX_ITEMS,
     DEFAULT_TIMEOUT,
+    STORAGE_KEY,
+    STORAGE_VERSION,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -35,6 +39,13 @@ class CampaignManager:
         self._listeners: list[Callable[[], None]] = []
         self._task: asyncio.Task | None = None
         self._shutdown = False
+
+        self._store = Store[dict[str, Any]](
+            hass,
+            STORAGE_VERSION,
+            f"{STORAGE_KEY}_{entry.entry_id}",
+        )
+        self._save_task: asyncio.Task | None = None
 
         self.state = "idle"
         self.queue: list[str] = []
@@ -63,14 +74,26 @@ class CampaignManager:
         self.temp = None
         self.load_1m = None
 
+    async def async_initialize(self) -> None:
+        await self._async_restore_state()
+
     async def async_shutdown(self) -> None:
         self._shutdown = True
+
         if self._task and not self._task.done():
             self._task.cancel()
             try:
                 await self._task
             except asyncio.CancelledError:
                 pass
+
+        if self._save_task and not self._save_task.done():
+            try:
+                await self._save_task
+            except asyncio.CancelledError:
+                pass
+
+        await self._async_save_state()
 
     def add_listener(self, callback: Callable[[], None]) -> Callable[[], None]:
         self._listeners.append(callback)
@@ -84,6 +107,110 @@ class CampaignManager:
     def _push(self) -> None:
         for callback in list(self._listeners):
             callback()
+        self._schedule_save()
+
+    def _schedule_save(self) -> None:
+        if self._shutdown:
+            return
+        if self._save_task and not self._save_task.done():
+            return
+        self._save_task = self.hass.async_create_task(self._async_save_state())
+
+    async def _async_save_state(self) -> None:
+        try:
+            await self._store.async_save(self._snapshot())
+        except Exception:
+            _LOGGER.exception("Failed to save ESU state")
+
+    async def _async_restore_state(self) -> None:
+        try:
+            data = await self._store.async_load()
+        except Exception:
+            _LOGGER.exception("Failed to restore ESU state")
+            return
+
+        if not data:
+            return
+
+        self._apply_snapshot(data)
+
+        if self.state in ("running", "paused"):
+            current = self.current_update_entity or self.current
+            if current:
+                if current not in self.remaining and current not in self.done and current not in self.failed:
+                    self.remaining.insert(0, current)
+
+            self.current = ""
+            self.current_update_entity = ""
+            self.pause_requested = False
+            self.stop_requested = False
+            self.state = "paused"
+            self.last_error = "restored_after_restart"
+
+        self._update_metrics()
+        self._push()
+
+    def _snapshot(self) -> dict[str, Any]:
+        return {
+            "state": self.state,
+            "queue": list(self.queue),
+            "remaining": list(self.remaining),
+            "done": list(self.done),
+            "failed": list(self.failed),
+            "skipped": list(self.skipped),
+            "current": self.current,
+            "current_update_entity": self.current_update_entity,
+            "total": self.total,
+            "index": self.index,
+            "start_ts": self.start_ts,
+            "end_ts": self.end_ts,
+            "duration_s": self.duration_s,
+            "avg_duration_s": self.avg_duration_s,
+            "eta_s": self.eta_s,
+            "delay_s": self.delay_s,
+            "pause_requested": self.pause_requested,
+            "stop_requested": self.stop_requested,
+            "last_error": self.last_error,
+            "cpu": self.cpu,
+            "temp": self.temp,
+            "load_1m": self.load_1m,
+        }
+
+    def _apply_snapshot(self, data: dict[str, Any]) -> None:
+        self.state = str(data.get("state", "idle"))
+        self.queue = list(data.get("queue", []))
+        self.remaining = list(data.get("remaining", []))
+        self.done = list(data.get("done", []))
+        self.failed = list(data.get("failed", []))
+        self.skipped = list(data.get("skipped", []))
+
+        self.current = str(data.get("current", ""))
+        self.current_update_entity = str(data.get("current_update_entity", ""))
+
+        self.total = int(data.get("total", 0) or 0)
+        self.index = int(data.get("index", 0) or 0)
+        self.start_ts = int(data.get("start_ts", 0) or 0)
+        self.end_ts = int(data.get("end_ts", 0) or 0)
+        self.duration_s = int(data.get("duration_s", 0) or 0)
+
+        avg_duration_s = data.get("avg_duration_s", 0)
+        try:
+            self.avg_duration_s = float(avg_duration_s or 0)
+        except (TypeError, ValueError):
+            self.avg_duration_s = 0
+
+        self.eta_s = int(data.get("eta_s", 0) or 0)
+        self.delay_s = int(
+            data.get("delay_s", self._get_option(CONF_DELAY_MIN, DEFAULT_DELAY_MIN)) or 0
+        )
+
+        self.pause_requested = bool(data.get("pause_requested", False))
+        self.stop_requested = bool(data.get("stop_requested", False))
+        self.last_error = str(data.get("last_error", ""))
+
+        self.cpu = data.get("cpu")
+        self.temp = data.get("temp")
+        self.load_1m = data.get("load_1m")
 
     def _get_option(self, key: str, default):
         return self.entry.options.get(key, default)
@@ -142,7 +269,7 @@ class CampaignManager:
 
         stress_cpu = (cpu / 100.0) if cpu is not None else 0.0
         stress_load = (load / 4.0) if load is not None else 0.0
-        stress_temp = (((temp - 50.0) / 25.0) if temp is not None and temp > 50 else 0.0)
+        stress_temp = ((temp - 50.0) / 25.0) if temp is not None and temp > 50 else 0.0
 
         stress = max(stress_cpu, stress_load, stress_temp)
         stress = max(0.0, min(1.0, stress))
@@ -393,7 +520,7 @@ class CampaignManager:
 
         self._push()
 
-    def campaign_attributes(self) -> dict:
+    def campaign_attributes(self) -> dict[str, Any]:
         return {
             "queue": list(self.queue),
             "remaining": list(self.remaining),
