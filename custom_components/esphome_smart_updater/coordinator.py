@@ -28,60 +28,26 @@ class CampaignManager:
 
     async def start(self) -> None:
         if self.state == "running":
-            _LOGGER.warning("ESU start ignored: already running")
             return
 
         ent_reg = er.async_get(self.hass)
-        all_updates = list(self.hass.states.async_entity_ids("update"))
+        updates: list[str] = []
 
-        _LOGGER.warning("ESU start pressed")
-        _LOGGER.warning("ESU total update.* found: %s", len(all_updates))
-
-        selected = []
-
-        for eid in all_updates:
+        for eid in self.hass.states.async_entity_ids("update"):
             st = self.hass.states.get(eid)
             entry = ent_reg.async_get(eid)
 
-            state_value = st.state if st else None
-            friendly = st.attributes.get("friendly_name") if st else None
-            title = st.attributes.get("title") if st else None
-            installed = st.attributes.get("installed_version") if st else None
-            latest = st.attributes.get("latest_version") if st else None
-            entity_category = st.attributes.get("entity_category") if st else None
-
-            platform = entry.platform if entry else None
-            config_entry_id = entry.config_entry_id if entry else None
-
-            _LOGGER.warning(
-                "ESU candidate eid=%s state=%s platform=%s config_entry_id=%s friendly=%s title=%s installed=%s latest=%s entity_category=%s",
-                eid,
-                state_value,
-                platform,
-                config_entry_id,
-                friendly,
-                title,
-                installed,
-                latest,
-                entity_category,
-            )
-
-            if not st:
+            if not st or st.state != "on" or not entry:
+                continue
+            if entry.platform != "esphome":
                 continue
 
-            if st.state != "on":
-                continue
+            updates.append(eid)
 
-            selected.append(eid)
+        updates = updates[:3]
+        _LOGGER.warning("ESU ESPHome queue: %s", updates)
 
-        _LOGGER.warning("ESU selected after state==on: %s", selected)
-
-        max_items = 3
-        selected = selected[:max_items]
-
-        _LOGGER.warning("ESU final queue (max %s): %s", max_items, selected)
-
-        self.queue = selected
+        self.queue = updates
         self.done = []
         self.failed = []
         self.current = None
@@ -90,15 +56,10 @@ class CampaignManager:
 
         if self.queue:
             self.hass.async_create_task(self._run())
-        else:
-            _LOGGER.warning("ESU no eligible updates found, returning to idle")
 
     async def _run(self) -> None:
-        _LOGGER.warning("ESU run started with queue=%s", self.queue)
-
         while self.queue:
             self.current = self.queue.pop(0)
-            _LOGGER.warning("ESU installing current=%s remaining=%s", self.current, self.queue)
             self._push()
 
             try:
@@ -108,19 +69,8 @@ class CampaignManager:
                     {"entity_id": self.current},
                     blocking=True,
                 )
-                _LOGGER.warning("ESU install service returned for %s", self.current)
-
                 await asyncio.sleep(5)
-
-                st = self.hass.states.get(self.current)
-                _LOGGER.warning(
-                    "ESU post-install state for %s => %s",
-                    self.current,
-                    st.state if st else None,
-                )
-
                 self.done.append(self.current)
-
             except Exception:
                 _LOGGER.exception("ESU update failed for %s", self.current)
                 self.failed.append(self.current)
@@ -129,5 +79,4 @@ class CampaignManager:
             self._push()
 
         self.state = "idle"
-        _LOGGER.warning("ESU run finished done=%s failed=%s", self.done, self.failed)
         self._push()
