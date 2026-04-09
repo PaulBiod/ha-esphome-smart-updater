@@ -106,19 +106,28 @@ class ESPHomeSmartUpdaterOptionsFlow(config_entries.OptionsFlow):
                         CONF_CPU_SENSOR,
                         default=options.get(CONF_CPU_SENSOR),
                     ): selector.EntitySelector(
-                        selector.EntitySelectorConfig(domain="sensor", multiple=False)
+                        selector.EntitySelectorConfig(
+                            domain="sensor",
+                            multiple=False,
+                        )
                     ),
                     vol.Optional(
                         CONF_TEMP_SENSOR,
                         default=options.get(CONF_TEMP_SENSOR),
                     ): selector.EntitySelector(
-                        selector.EntitySelectorConfig(domain="sensor", multiple=False)
+                        selector.EntitySelectorConfig(
+                            domain="sensor",
+                            multiple=False,
+                        )
                     ),
                     vol.Optional(
                         CONF_LOAD_SENSOR,
                         default=options.get(CONF_LOAD_SENSOR),
                     ): selector.EntitySelector(
-                        selector.EntitySelectorConfig(domain="sensor", multiple=False)
+                        selector.EntitySelectorConfig(
+                            domain="sensor",
+                            multiple=False,
+                        )
                     ),
                     vol.Optional(
                         CONF_DELAY_MIN,
