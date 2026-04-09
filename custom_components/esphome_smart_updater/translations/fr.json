@@ -12,6 +12,7 @@
         "data": {
           "timeout": "Timeout avant échec (secondes)",
           "max_items": "Nombre maximum d'appareils par lot",
+          "restore_resume_delay": "Délai avant reprise après redémarrage de Home Assistant",
           "throttle": "Activer l'adaptation automatique du délai"
         }
       },
