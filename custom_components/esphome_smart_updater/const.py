@@ -19,3 +19,6 @@ BUTTON_START_UNIQUE_ID = "esu_start"
 BUTTON_PAUSE_UNIQUE_ID = "esu_pause"
 BUTTON_RESUME_UNIQUE_ID = "esu_resume"
 BUTTON_STOP_UNIQUE_ID = "esu_stop"
+
+STORAGE_VERSION = 1
+STORAGE_KEY = f"{DOMAIN}_campaign"
