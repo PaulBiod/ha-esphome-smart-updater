@@ -1,38 +1,71 @@
+from __future__ import annotations
+
 from homeassistant.components.button import ButtonEntity
-from .const import DOMAIN
+from homeassistant.config_entries import ConfigEntry
+from homeassistant.core import HomeAssistant
+from homeassistant.helpers.entity_platform import AddEntitiesCallback
+
+from .const import (
+    BUTTON_PAUSE_UNIQUE_ID,
+    BUTTON_RESUME_UNIQUE_ID,
+    BUTTON_START_UNIQUE_ID,
+    BUTTON_STOP_UNIQUE_ID,
+    DOMAIN,
+)
 
 
-async def async_setup_entry(hass, entry, async_add_entities):
-    m = hass.data[DOMAIN][entry.entry_id]
+async def async_setup_entry(
+    hass: HomeAssistant,
+    entry: ConfigEntry,
+    async_add_entities: AddEntitiesCallback,
+) -> None:
+    manager = hass.data[DOMAIN][entry.entry_id]
+    async_add_entities(
+        [
+            ESUStartButton(manager),
+            ESUPauseButton(manager),
+            ESUResumeButton(manager),
+            ESUStopButton(manager),
+        ]
+    )
 
-    async_add_entities([
-        Start(m),
-        Pause(m),
-        Resume(m),
-        Stop(m),
-    ])
+
+class _BaseButton(ButtonEntity):
+    def __init__(self, manager) -> None:
+        self.manager = manager
 
 
-class Base(ButtonEntity):
-    def __init__(self, m):
-        self.m = m
-
-
-class Start(Base):
+class ESUStartButton(_BaseButton):
     _attr_name = "ESU Start"
-    async def async_press(self): await self.m.start()
+    _attr_unique_id = BUTTON_START_UNIQUE_ID
+    _attr_icon = "mdi:play"
+
+    async def async_press(self) -> None:
+        await self.manager.async_start()
 
 
-class Pause(Base):
+class ESUPauseButton(_BaseButton):
     _attr_name = "ESU Pause"
-    async def async_press(self): await self.m.pause()
+    _attr_unique_id = BUTTON_PAUSE_UNIQUE_ID
+    _attr_icon = "mdi:pause"
+
+    async def async_press(self) -> None:
+        await self.manager.async_pause()
 
 
-class Resume(Base):
+class ESUResumeButton(_BaseButton):
     _attr_name = "ESU Resume"
-    async def async_press(self): await self.m.resume()
+    _attr_unique_id = BUTTON_RESUME_UNIQUE_ID
+    _attr_icon = "mdi:play"
+
+    async def async_press(self) -> None:
+        await self.manager.async_resume()
 
 
-class Stop(Base):
+class ESUStopButton(_BaseButton):
     _attr_name = "ESU Stop"
-    async def async_press(self): await self.m.stop()
+    _attr_unique_id = BUTTON_STOP_UNIQUE_ID
+    _attr_icon = "mdi:stop"
+
+    async def async_press(self) -> None:
+        await self.manager.async_stop()
