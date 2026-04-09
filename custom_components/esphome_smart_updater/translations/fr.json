@@ -7,35 +7,23 @@
   "options": {
     "step": {
       "init": {
-        "title": "Options générales",
-        "description": "Configurer le comportement général de la campagne de mise à jour.",
+        "title": "Réglages généraux",
+        "description": "Configure le comportement global des campagnes OTA ESPHome.",
         "data": {
-          "timeout": "Timeout",
-          "max_items": "Nombre max d'appareils par lot",
-          "throttle": "Activer le throttling dynamique"
-        },
-        "data_description": {
-          "timeout": "Temps maximum d'attente, en secondes, pour qu'une mise à jour se termine avant de la marquer en échec.",
-          "max_items": "Limite le nombre d'appareils traités dans un lot. Utile surtout pour les tests. En usage final, mettre une valeur élevée ou retirer cette logique plus tard.",
-          "throttle": "Adapte automatiquement le délai entre deux updates selon la charge du serveur."
+          "timeout": "Timeout avant échec (secondes)",
+          "max_items": "Nombre maximum d'appareils par lot",
+          "throttle": "Activer l'adaptation automatique du délai"
         }
       },
       "throttle": {
-        "title": "Options du throttling",
-        "description": "Choisis les capteurs utilisés pour mesurer la charge du serveur et les délais mini/maxi appliqués entre deux mises à jour.",
+        "title": "Adaptation automatique du délai",
+        "description": "Choisis les capteurs à utiliser pour estimer la charge du serveur, puis définis les délais mini et maxi entre deux mises à jour.",
         "data": {
-          "cpu_sensor": "Capteur CPU",
-          "temp_sensor": "Capteur température CPU",
-          "load_sensor": "Capteur load",
-          "delay_min": "Délai minimum",
-          "delay_max": "Délai maximum"
-        },
-        "data_description": {
-          "cpu_sensor": "Capteur représentant l'utilisation CPU en pourcentage.",
-          "temp_sensor": "Capteur représentant la température CPU, idéalement en °C.",
-          "load_sensor": "Capteur représentant la charge système, par exemple load 1m.",
-          "delay_min": "Délai minimum, en secondes, entre deux mises à jour quand la charge est faible.",
-          "delay_max": "Délai maximum, en secondes, entre deux mises à jour quand la charge est élevée."
+          "cpu_sensor": "Capteur d'utilisation CPU (%)",
+          "temp_sensor": "Capteur de température CPU (°C)",
+          "load_sensor": "Capteur de charge système (load)",
+          "delay_min": "Délai minimum entre deux updates (s)",
+          "delay_max": "Délai maximum entre deux updates (s)"
         }
       }
     }
