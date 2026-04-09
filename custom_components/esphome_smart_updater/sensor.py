@@ -1,4 +1,3 @@
-# custom_components/esphome_smart_updater/sensor.py
 from __future__ import annotations
 
 from homeassistant.components.sensor import SensorEntity
@@ -41,26 +40,22 @@ class _BaseESUSensor(SensorEntity):
             self._remove_listener = None
 
 
-class ESPHomeSmartUpdaterPendingUpdatesSensor(_BaseESUSensor):
-    _attr_name = "ESPHome Smart Updater Pending Updates"
-    _attr_unique_id = "esphome_smart_updater_pending_updates"
-    _attr_icon = "mdi:update"
+class ESPHomeSmartUpdaterCampaignSensor(_BaseESUSensor):
+    _attr_name = "ESPHome Smart Updater Campaign"
+    _attr_unique_id = CAMPAIGN_SENSOR_UNIQUE_ID
+    _attr_icon = "mdi:upload-network"
 
     @property
     def native_value(self):
-        return self.manager.pending_updates_count
+        return self.manager.state
 
     @property
     def extra_state_attributes(self):
-        entities = self.manager.pending_updates_entities()
-        return {
-            "pending_updates": entities,
-            "total": len(entities),
-        }
+        return self.manager.campaign_attributes()
 
 
 class ESPHomeSmartUpdaterPendingUpdatesSensor(_BaseESUSensor):
-    _attr_name = "ESPHome Pending Updates Count"
+    _attr_name = "ESPHome Smart Updater Pending Updates"
     _attr_unique_id = PENDING_UPDATES_SENSOR_UNIQUE_ID
     _attr_icon = "mdi:update"
 
