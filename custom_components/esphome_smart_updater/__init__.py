@@ -15,8 +15,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.data.setdefault(DOMAIN, {})
 
     manager = CampaignManager(hass, entry)
-    hass.data[DOMAIN][entry.entry_id] = manager
+    await manager.async_initialize()
 
+    hass.data[DOMAIN][entry.entry_id] = manager
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True
 
