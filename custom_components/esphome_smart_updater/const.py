@@ -1,3 +1,4 @@
+# custom_components/esphome_smart_updater/const.py
 DOMAIN = "esphome_smart_updater"
 
 DEFAULT_TIMEOUT = 600
