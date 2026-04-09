@@ -1,82 +1,98 @@
-from __future__ import annotations
-
-import asyncio
-import logging
-
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers.event import async_call_later
+import logging
 
 _LOGGER = logging.getLogger(__name__)
 
+DOMAIN = "esphome_smart_updater"
+
 
 class CampaignManager:
-    def __init__(self, hass: HomeAssistant) -> None:
+    def __init__(self, hass: HomeAssistant):
         self.hass = hass
-        self.state = "idle"
-        self.queue: list[str] = []
-        self.current: str | None = None
-        self.done: list[str] = []
-        self.failed: list[str] = []
-        self._listeners = []
+        self.running = False
+        self.current = None
+        self.queue = []
 
-    def add_listener(self, cb) -> None:
-        self._listeners.append(cb)
-
-    def _push(self) -> None:
-        for cb in self._listeners:
-            cb()
-
-    async def start(self) -> None:
-        if self.state == "running":
+    async def start(self):
+        if self.running:
+            _LOGGER.info("ESU already running")
             return
 
-        ent_reg = er.async_get(self.hass)
-        updates: list[str] = []
+        self.queue = self._find_updates()
 
-        for eid in self.hass.states.async_entity_ids("update"):
-            st = self.hass.states.get(eid)
-            entry = ent_reg.async_get(eid)
+        if not self.queue:
+            _LOGGER.warning("ESU no updates found")
+            return
 
-            if not st or st.state != "on" or not entry:
-                continue
-            if entry.platform != "esphome":
-                continue
+        # 🔥 max_items = 1
+        self.queue = self.queue[:1]
 
-            updates.append(eid)
+        _LOGGER.warning(f"ESU ESPHome queue: {self.queue}")
 
-        updates = updates[:1]
-        _LOGGER.warning("ESU ESPHome queue: %s", updates)
+        self.running = True
+        await self._process_next()
 
-        self.queue = updates
-        self.done = []
-        self.failed = []
-        self.current = None
-        self.state = "running" if self.queue else "idle"
-        self._push()
-
-        if self.queue:
-            self.hass.async_create_task(self._run())
-
-    async def _run(self) -> None:
-        while self.queue:
-            self.current = self.queue.pop(0)
-            self._push()
-
-            try:
-                await self.hass.services.async_call(
-                    "update",
-                    "install",
-                    {"entity_id": self.current},
-                    blocking=True,
-                )
-                await asyncio.sleep(5)
-                self.done.append(self.current)
-            except Exception:
-                _LOGGER.exception("ESU update failed for %s", self.current)
-                self.failed.append(self.current)
-
+    async def _process_next(self):
+        if not self.queue:
+            _LOGGER.warning("ESU done")
+            self.running = False
             self.current = None
-            self._push()
+            return
 
-        self.state = "idle"
-        self._push()
+        entity_id = self.queue.pop(0)
+        self.current = entity_id
+
+        _LOGGER.warning(f"ESU updating {entity_id}")
+
+        try:
+            await self.hass.services.async_call(
+                "update",
+                "install",
+                {"entity_id": entity_id},
+                blocking=False,
+            )
+        except Exception as e:
+            _LOGGER.error(f"ESU failed to start update {entity_id}: {e}")
+            self.running = False
+            return
+
+        # 🔥 check toutes les 10s
+        async_call_later(self.hass, 10, self._check_done)
+
+    async def _check_done(self, *_):
+        if not self.current:
+            return
+
+        state = self.hass.states.get(self.current)
+
+        if not state:
+            return
+
+        in_progress = state.attributes.get("in_progress")
+
+        if in_progress:
+            _LOGGER.debug(f"ESU still updating {self.current}")
+            async_call_later(self.hass, 10, self._check_done)
+            return
+
+        _LOGGER.warning(f"ESU finished {self.current}")
+
+        self.current = None
+        await self._process_next()
+
+    def _find_updates(self):
+        result = []
+
+        for state in self.hass.states.async_all("update"):
+            attrs = state.attributes
+
+            if attrs.get("device_class") != "firmware":
+                continue
+
+            if not state.state == "on":
+                continue
+
+            result.append(state.entity_id)
+
+        return result
