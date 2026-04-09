@@ -43,11 +43,11 @@ class ESPHomeSmartUpdaterConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
 class ESPHomeSmartUpdaterOptionsFlow(config_entries.OptionsFlow):
     def __init__(self, config_entry):
-        self.config_entry = config_entry
+        self._config_entry = config_entry
         self.options_data = {}
 
     async def async_step_init(self, user_input=None):
-        options = dict(self.config_entry.options)
+        options = dict(self._config_entry.options)
 
         if user_input is not None:
             self.options_data = dict(user_input)
@@ -113,7 +113,7 @@ class ESPHomeSmartUpdaterOptionsFlow(config_entries.OptionsFlow):
         )
 
     async def async_step_throttle(self, user_input=None):
-        options = dict(self.config_entry.options)
+        options = dict(self._config_entry.options)
 
         if user_input is not None:
             self.options_data.update(user_input)
