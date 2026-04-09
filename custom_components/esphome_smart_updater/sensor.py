@@ -41,18 +41,22 @@ class _BaseESUSensor(SensorEntity):
             self._remove_listener = None
 
 
-class ESPHomeSmartUpdaterCampaignSensor(_BaseESUSensor):
-    _attr_name = "ESPHome Smart Updater Campaign"
-    _attr_unique_id = CAMPAIGN_SENSOR_UNIQUE_ID
-    _attr_icon = "mdi:upload-network"
+class ESPHomeSmartUpdaterPendingUpdatesSensor(_BaseESUSensor):
+    _attr_name = "ESPHome Smart Updater Pending Updates"
+    _attr_unique_id = "esphome_smart_updater_pending_updates"
+    _attr_icon = "mdi:update"
 
     @property
     def native_value(self):
-        return self.manager.state
+        return self.manager.pending_updates_count
 
     @property
     def extra_state_attributes(self):
-        return self.manager.campaign_attributes()
+        entities = self.manager.pending_updates_entities()
+        return {
+            "pending_updates": entities,
+            "total": len(entities),
+        }
 
 
 class ESPHomeSmartUpdaterPendingUpdatesSensor(_BaseESUSensor):
