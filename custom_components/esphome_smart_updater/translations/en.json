@@ -7,35 +7,23 @@
   "options": {
     "step": {
       "init": {
-        "title": "General options",
-        "description": "Configure the general behavior of the update campaign.",
+        "title": "General settings",
+        "description": "Configure the global behavior of ESPHome OTA campaigns.",
         "data": {
-          "timeout": "Timeout",
+          "timeout": "Failure timeout (seconds)",
           "max_items": "Maximum devices per batch",
-          "throttle": "Enable dynamic throttling"
-        },
-        "data_description": {
-          "timeout": "Maximum time, in seconds, to wait for an update to complete before marking it as failed.",
-          "max_items": "Limits how many devices are processed in one batch. Mainly useful for testing. For final use, set a high value or remove this logic later.",
-          "throttle": "Automatically adjusts the delay between updates based on server load."
+          "throttle": "Enable automatic delay adaptation"
         }
       },
       "throttle": {
-        "title": "Throttling options",
-        "description": "Choose which sensors are used to measure server load and define the minimum/maximum delays between two updates.",
+        "title": "Automatic delay adaptation",
+        "description": "Choose which sensors should be used to estimate server load, then define the minimum and maximum delay between updates.",
         "data": {
-          "cpu_sensor": "CPU sensor",
-          "temp_sensor": "CPU temperature sensor",
-          "load_sensor": "Load sensor",
-          "delay_min": "Minimum delay",
-          "delay_max": "Maximum delay"
-        },
-        "data_description": {
-          "cpu_sensor": "Sensor representing CPU usage in percent.",
-          "temp_sensor": "Sensor representing CPU temperature, ideally in °C.",
-          "load_sensor": "Sensor representing system load, for example 1-minute load.",
-          "delay_min": "Minimum delay, in seconds, between two updates when load is low.",
-          "delay_max": "Maximum delay, in seconds, between two updates when load is high."
+          "cpu_sensor": "CPU usage sensor (%)",
+          "temp_sensor": "CPU temperature sensor (°C)",
+          "load_sensor": "System load sensor",
+          "delay_min": "Minimum delay between updates (s)",
+          "delay_max": "Maximum delay between updates (s)"
         }
       }
     }
