@@ -17,25 +17,51 @@ class CampaignManager(DataUpdateCoordinator):
             hass,
             _LOGGER,
             name=DOMAIN,
-            update_interval=None,  # 👈 IMPORTANT
+            update_interval=None,
         )
 
         self.hass = hass
         self.state = "idle"
-        self.queue = []
-        self.current = None
-        self.done = []
-        self.failed = []
+        self.queue: list[str] = []
+        self.current: str | None = None
+        self.done: list[str] = []
+        self.failed: list[str] = []
 
-    async def start(self):
+        self.async_set_updated_data(self._data())
+
+    def _data(self) -> dict:
+        total = len(self.queue) + len(self.done) + len(self.failed) + (1 if self.current else 0)
+        finished = len(self.done) + len(self.failed)
+
+        return {
+            "state": self.state,
+            "current": self.current,
+            "queue": list(self.queue),
+            "done": list(self.done),
+            "failed": list(self.failed),
+            "finished": finished,
+            "total": total,
+        }
+
+    def _push(self) -> None:
+        self.async_set_updated_data(self._data())
+
+    async def start(self) -> None:
         if self.state == "running":
             return
 
-        updates = []
-        for entity_id in self.hass.states.async_entity_ids("update"):
-            state = self.hass.states.get(entity_id)
-            if entity_id.startswith("update.") and state and state.state == "on":
-                updates.append(entity_id)
+        updates = [
+            entity_id
+            for entity_id in self.hass.states.async_entity_ids("update")
+            if entity_id.startswith("update.")
+            and self.hass.states.get(entity_id)
+            and self.hass.states.get(entity_id).state == "on"
+        ]
+
+        max_items = 1
+        updates = updates[:max_items]
+
+        _LOGGER.warning("ESU found %s update(s): %s", len(updates), updates)
 
         self.queue = updates
         self.done = []
@@ -43,15 +69,15 @@ class CampaignManager(DataUpdateCoordinator):
         self.current = None
         self.state = "running" if self.queue else "idle"
 
-        self.async_set_updated_data({})
+        self._push()
 
         if self.queue:
             self.hass.async_create_task(self._run())
 
-    async def _run(self):
+    async def _run(self) -> None:
         while self.queue:
             self.current = self.queue.pop(0)
-            self.async_set_updated_data({})
+            self._push()
 
             try:
                 await self.hass.services.async_call(
@@ -69,7 +95,7 @@ class CampaignManager(DataUpdateCoordinator):
                 self.failed.append(self.current)
 
             self.current = None
-            self.async_set_updated_data({})
+            self._push()
 
         self.state = "idle"
-        self.async_set_updated_data({})
+        self._push()
