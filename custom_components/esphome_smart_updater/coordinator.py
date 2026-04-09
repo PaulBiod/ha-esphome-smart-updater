@@ -3,7 +3,6 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Callable
 from copy import deepcopy
-from datetime import timedelta
 import logging
 import time
 
@@ -157,17 +156,19 @@ class CampaignManager:
         }
 
     async def async_start(self) -> None:
-    await self._async_refresh_pending_updates()
+        await self._async_refresh_pending_updates()
 
-    max_items = int(self.entry.options.get(CONF_MAX_ITEMS, DEFAULT_MAX_ITEMS) or DEFAULT_MAX_ITEMS)
-    updates = self._pending_update_entities[:max_items]
+        max_items = int(
+            self.entry.options.get(CONF_MAX_ITEMS, DEFAULT_MAX_ITEMS) or DEFAULT_MAX_ITEMS
+        )
+        updates = self._pending_update_entities[:max_items]
 
-    if not updates:
-        self._reset_runtime_state()
-        self.last_error = "no_updates_detected"
-        await self._async_save()
-        self._notify()
-        return
+        if not updates:
+            self._reset_runtime_state()
+            self.last_error = "no_updates_detected"
+            await self._async_save()
+            self._notify()
+            return
 
         self.state = "running"
         self.queue = list(updates)
@@ -184,7 +185,9 @@ class CampaignManager:
         self.duration_s = 0
         self.avg_duration_s = 0
         self.eta_s = 0
-        self.delay_s = self.entry.options.get(CONF_DELAY_MIN, DEFAULT_DELAY_MIN)
+        self.delay_s = int(
+            self.entry.options.get(CONF_DELAY_MIN, DEFAULT_DELAY_MIN) or DEFAULT_DELAY_MIN
+        )
         self.pause_requested = False
         self.stop_requested = False
         self.waiting_ha_started = False
@@ -249,7 +252,12 @@ class CampaignManager:
         if self.state != "paused" or not self.waiting_ha_started:
             return
 
-        delay = self.entry.options.get(CONF_RESTORE_RESUME_DELAY, DEFAULT_RESTORE_RESUME_DELAY)
+        delay = int(
+            self.entry.options.get(
+                CONF_RESTORE_RESUME_DELAY, DEFAULT_RESTORE_RESUME_DELAY
+            )
+            or DEFAULT_RESTORE_RESUME_DELAY
+        )
         self.resume_at_ts = int(time.time()) + delay
         await self._async_save()
         self._notify()
@@ -285,11 +293,11 @@ class CampaignManager:
             if state is None or state.state != "on":
                 continue
 
-            entry = registry.async_get(entity_id)
-            if entry is None:
+            reg_entry = registry.async_get(entity_id)
+            if reg_entry is None:
                 continue
 
-            if entry.platform == "esphome":
+            if reg_entry.platform == "esphome":
                 result.append(entity_id)
 
         result.sort()
@@ -316,7 +324,14 @@ class CampaignManager:
         self.duration_s = int(data.get("duration_s", 0) or 0)
         self.avg_duration_s = int(data.get("avg_duration_s", 0) or 0)
         self.eta_s = int(data.get("eta_s", 0) or 0)
-        self.delay_s = int(data.get("delay_s", 0) or self.entry.options.get(CONF_DELAY_MIN, DEFAULT_DELAY_MIN))
+        self.delay_s = int(
+            data.get(
+                "delay_s",
+                self.entry.options.get(CONF_DELAY_MIN, DEFAULT_DELAY_MIN),
+            )
+            or self.entry.options.get(CONF_DELAY_MIN, DEFAULT_DELAY_MIN)
+            or DEFAULT_DELAY_MIN
+        )
         self.cpu = data.get("cpu")
         self.temp = data.get("temp")
         self.load_1m = data.get("load_1m")
@@ -330,11 +345,17 @@ class CampaignManager:
             self.stop_requested = False
             self.waiting_ha_started = True
             self.resume_at_ts = 0
-            self.index = min(len(self.done) + len(self.failed) + len(self.skipped) + 1, max(self.total, 1))
+            self.index = min(
+                len(self.done) + len(self.failed) + len(self.skipped) + 1,
+                max(self.total, 1),
+            )
         else:
             self.waiting_ha_started = False
             self.resume_at_ts = 0
-            self.index = min(len(self.done) + len(self.failed) + len(self.skipped), self.total)
+            self.index = min(
+                len(self.done) + len(self.failed) + len(self.skipped),
+                self.total,
+            )
 
         self._notify()
 
@@ -352,7 +373,13 @@ class CampaignManager:
         self.remaining = still_pending
         self.queue = list(dict.fromkeys(self.done + self.failed + self.skipped + self.remaining))
         self.total = max(self.total, len(self.queue))
-        self.index = min(len(self.done) + len(self.failed) + len(self.skipped) + (1 if self.remaining else 0), self.total)
+        self.index = min(
+            len(self.done)
+            + len(self.failed)
+            + len(self.skipped)
+            + (1 if self.remaining else 0),
+            self.total,
+        )
 
         processed = len(self.done) + len(self.failed) + len(self.skipped)
         if processed > 0 and self.start_ts:
@@ -368,7 +395,7 @@ class CampaignManager:
         self._worker_task = self.hass.loop.create_task(self._async_worker())
 
     async def _async_worker(self) -> None:
-        timeout_s = int(self.entry.options.get(CONF_TIMEOUT, DEFAULT_TIMEOUT))
+        timeout_s = int(self.entry.options.get(CONF_TIMEOUT, DEFAULT_TIMEOUT) or DEFAULT_TIMEOUT)
 
         try:
             while self.state == "running" and self.remaining:
@@ -398,10 +425,15 @@ class CampaignManager:
 
                 self.current = current
                 self.current_update_entity = current
-                self.index = min(len(self.done) + len(self.failed) + len(self.skipped) + 1, self.total)
+                self.index = min(
+                    len(self.done) + len(self.failed) + len(self.skipped) + 1,
+                    self.total,
+                )
 
                 self.cpu = self._read_float_sensor(CONF_CPU_SENSOR, "sensor.processor_use")
-                self.temp = self._read_float_sensor(CONF_TEMP_SENSOR, "sensor.processor_temperature")
+                self.temp = self._read_float_sensor(
+                    CONF_TEMP_SENSOR, "sensor.processor_temperature"
+                )
                 self.load_1m = self._read_float_sensor(CONF_LOAD_SENSOR, "sensor.load_1m")
 
                 await self._async_save()
@@ -490,12 +522,13 @@ class CampaignManager:
             if state is None or state.state == "off":
                 return True
             await asyncio.sleep(2)
+
         state = self.hass.states.get(entity_id)
         return state is None or state.state == "off"
 
     def _compute_dynamic_delay(self) -> int:
-        min_delay = int(self.entry.options.get(CONF_DELAY_MIN, DEFAULT_DELAY_MIN))
-        max_delay = int(self.entry.options.get(CONF_DELAY_MAX, DEFAULT_DELAY_MAX))
+        min_delay = int(self.entry.options.get(CONF_DELAY_MIN, DEFAULT_DELAY_MIN) or DEFAULT_DELAY_MIN)
+        max_delay = int(self.entry.options.get(CONF_DELAY_MAX, DEFAULT_DELAY_MAX) or DEFAULT_DELAY_MAX)
 
         cpu_now = self._read_float_sensor(CONF_CPU_SENSOR, "sensor.processor_use")
         temp_now = self._read_float_sensor(CONF_TEMP_SENSOR, "sensor.processor_temperature")
