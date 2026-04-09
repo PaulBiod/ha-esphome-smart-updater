@@ -28,6 +28,7 @@ from .const import (
     DEFAULT_REFRESH_INTERVAL,
     DEFAULT_RESTORE_RESUME_DELAY,
     DEFAULT_TIMEOUT,
+    EVENT_CAMPAIGN_FINISHED,
     STORAGE_KEY,
     STORAGE_VERSION,
 )
@@ -78,6 +79,9 @@ class CampaignManager:
         self.resume_at_ts = 0
         self.last_error = ""
         self.last_processed_entity = ""
+
+        self.last_report = ""
+        self.last_report_ts = 0
 
         self.pending_updates_count = 0
         self._pending_update_entities: list[str] = []
@@ -157,6 +161,9 @@ class CampaignManager:
             "resume_at_ts": self.resume_at_ts,
             "last_error": self.last_error,
             "last_processed_entity": self.last_processed_entity,
+            "last_report": self.last_report,
+            "last_report_ts": self.last_report_ts,
+            "report_available": bool(self.last_report),
             "throttle_enabled": bool(self.entry.options.get(CONF_THROTTLE, False)),
         }
 
@@ -199,6 +206,8 @@ class CampaignManager:
         self.resume_at_ts = 0
         self.last_error = ""
         self.last_processed_entity = ""
+        self.last_report = ""
+        self.last_report_ts = 0
 
         await self._async_save()
         self._notify()
@@ -246,7 +255,41 @@ class CampaignManager:
         self.pause_requested = False
 
         if self.state == "paused":
-            await self._finish_campaign(reset_lists=True, stopped=True)
+            await self._finish_campaign(stopped=True)
+
+        await self._async_save()
+        self._notify()
+
+    async def async_clear_report(self) -> None:
+        if self.state in ("running", "paused"):
+            return
+
+        self.queue = []
+        self.remaining = []
+        self.done = []
+        self.failed = []
+        self.skipped = []
+        self.current = ""
+        self.current_update_entity = ""
+        self.total = 0
+        self.index = 0
+        self.start_ts = 0
+        self.end_ts = 0
+        self.duration_s = 0
+        self.avg_duration_s = 0
+        self.eta_s = 0
+        self.delay_s = 0
+        self.cpu = None
+        self.temp = None
+        self.load_1m = None
+        self.pause_requested = False
+        self.stop_requested = False
+        self.waiting_ha_started = False
+        self.resume_at_ts = 0
+        self.last_error = ""
+        self.last_processed_entity = ""
+        self.last_report = ""
+        self.last_report_ts = 0
 
         await self._async_save()
         self._notify()
@@ -328,7 +371,7 @@ class CampaignManager:
         self.start_ts = int(data.get("start_ts", 0) or 0)
         self.end_ts = int(data.get("end_ts", 0) or 0)
         self.duration_s = int(data.get("duration_s", 0) or 0)
-        self.avg_duration_s = int(data.get("avg_duration_s", 0) or 0)
+        self.avg_duration_s = float(data.get("avg_duration_s", 0) or 0)
         self.eta_s = int(data.get("eta_s", 0) or 0)
         self.delay_s = int(
             data.get(
@@ -343,8 +386,12 @@ class CampaignManager:
         self.load_1m = data.get("load_1m")
         self.pause_requested = bool(data.get("pause_requested", False))
         self.stop_requested = bool(data.get("stop_requested", False))
+        self.waiting_ha_started = bool(data.get("waiting_ha_started", False))
+        self.resume_at_ts = int(data.get("resume_at_ts", 0) or 0)
         self.last_error = data.get("last_error", "")
         self.last_processed_entity = data.get("last_processed_entity", "")
+        self.last_report = data.get("last_report", "")
+        self.last_report_ts = int(data.get("last_report_ts", 0) or 0)
 
         if self.state in ("running", "paused") and self.remaining:
             self.state = "paused"
@@ -409,7 +456,7 @@ class CampaignManager:
                 current = self.remaining[0]
 
                 if self.stop_requested:
-                    await self._finish_campaign(reset_lists=True, stopped=True)
+                    await self._finish_campaign(stopped=True)
                     await self._async_save()
                     self._notify()
                     return
@@ -473,7 +520,7 @@ class CampaignManager:
                 await self._async_post_item_update()
 
                 if self.stop_requested:
-                    await self._finish_campaign(reset_lists=True, stopped=True)
+                    await self._finish_campaign(stopped=True)
                     await self._async_save()
                     self._notify()
                     return
@@ -624,6 +671,17 @@ class CampaignManager:
             return max_delay
         return target
 
+    async def _send_persistent_notification(self, title: str, message: str) -> None:
+        await self.hass.services.async_call(
+            "persistent_notification",
+            "create",
+            {
+                "title": title,
+                "message": message,
+            },
+            blocking=False,
+        )
+
     def _format_duration(self, seconds: int | float) -> str:
         s = int(seconds or 0)
         h = s // 3600
@@ -636,6 +694,8 @@ class CampaignManager:
         return f"{sec}s"
 
     def _entity_label(self, entity_id: str) -> str:
+        if not entity_id:
+            return "-"
         state = self.hass.states.get(entity_id)
         if state is None:
             return entity_id
@@ -650,7 +710,7 @@ class CampaignManager:
         throttle = "ON" if self._throttle_enabled() else "OFF"
         duration = self._format_duration(self.duration_s)
         avg = self._format_duration(self.avg_duration_s) if self.avg_duration_s else "0s"
-        last_device = self._entity_label(self.last_processed_entity) if self.last_processed_entity else "-"
+        last_device = self._entity_label(self.last_processed_entity)
 
         lines: list[str] = []
 
@@ -687,21 +747,32 @@ class CampaignManager:
 
         return "\n".join(lines)
 
-    async def _send_persistent_notification(self, title: str, message: str) -> None:
-        await self.hass.services.async_call(
-            "persistent_notification",
-            "create",
-            {
-                "title": title,
-                "message": message,
-            },
-            blocking=False,
-        )
-
-    async def _finish_campaign(self, reset_lists: bool = False, stopped: bool = False) -> None:
-        title = "ESPHome Smart Updater"
+    async def _finish_campaign(self, stopped: bool = False) -> None:
+        result = "stopped" if stopped else ("error" if self.failed else "success")
         message = self._build_summary_message(stopped=stopped)
-        await self._send_persistent_notification(title, message)
+
+        await self._send_persistent_notification("ESPHome Smart Updater", message)
+
+        self.last_report = message
+        self.last_report_ts = int(time.time())
+
+        self.hass.bus.async_fire(
+            EVENT_CAMPAIGN_FINISHED,
+            {
+                "result": result,
+                "total": self.total,
+                "done": len(self.done),
+                "failed": len(self.failed),
+                "skipped": len(self.skipped),
+                "remaining": len(self.remaining),
+                "duration_s": self.duration_s,
+                "avg_duration_s": self.avg_duration_s,
+                "throttle_enabled": self._throttle_enabled(),
+                "failed_entities": list(self.failed),
+                "last_processed_entity": self.last_processed_entity,
+                "last_report": message,
+            },
+        )
 
         self.state = "idle"
         self.current = ""
@@ -713,19 +784,6 @@ class CampaignManager:
         self.end_ts = int(time.time())
         self.index = 0
         self.eta_s = 0
-
-        if reset_lists:
-            self.queue = []
-            self.remaining = []
-            self.done = []
-            self.failed = []
-            self.skipped = []
-            self.total = 0
-            self.duration_s = 0
-            self.avg_duration_s = 0
-            self.delay_s = 0
-            self.last_error = ""
-            self.last_processed_entity = ""
 
     def _reset_runtime_state(self) -> None:
         self.state = "idle"
@@ -751,7 +809,10 @@ class CampaignManager:
         self.stop_requested = False
         self.waiting_ha_started = False
         self.resume_at_ts = 0
+        self.last_error = ""
         self.last_processed_entity = ""
+        self.last_report = ""
+        self.last_report_ts = 0
 
     async def _async_save(self) -> None:
         data = deepcopy(self.campaign_attributes())
