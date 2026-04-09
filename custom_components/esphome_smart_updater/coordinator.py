@@ -77,6 +77,7 @@ class CampaignManager:
         self.waiting_ha_started = False
         self.resume_at_ts = 0
         self.last_error = ""
+        self.last_processed_entity = ""
 
         self.pending_updates_count = 0
         self._pending_update_entities: list[str] = []
@@ -155,6 +156,7 @@ class CampaignManager:
             "waiting_ha_started": self.waiting_ha_started,
             "resume_at_ts": self.resume_at_ts,
             "last_error": self.last_error,
+            "last_processed_entity": self.last_processed_entity,
             "throttle_enabled": bool(self.entry.options.get(CONF_THROTTLE, False)),
         }
 
@@ -196,6 +198,7 @@ class CampaignManager:
         self.waiting_ha_started = False
         self.resume_at_ts = 0
         self.last_error = ""
+        self.last_processed_entity = ""
 
         await self._async_save()
         self._notify()
@@ -341,6 +344,7 @@ class CampaignManager:
         self.pause_requested = bool(data.get("pause_requested", False))
         self.stop_requested = bool(data.get("stop_requested", False))
         self.last_error = data.get("last_error", "")
+        self.last_processed_entity = data.get("last_processed_entity", "")
 
         if self.state in ("running", "paused") and self.remaining:
             self.state = "paused"
@@ -422,6 +426,7 @@ class CampaignManager:
                 if current not in self._pending_update_entities:
                     if current not in self.done:
                         self.done.append(current)
+                    self.last_processed_entity = current
                     self.remaining.pop(0)
                     await self._async_post_item_update()
                     continue
@@ -456,6 +461,8 @@ class CampaignManager:
                     if current not in self.failed:
                         self.failed.append(current)
                     self.last_error = "timeout_or_still_on"
+
+                self.last_processed_entity = current
 
                 if self.remaining and self.remaining[0] == current:
                     self.remaining.pop(0)
@@ -606,7 +613,7 @@ class CampaignManager:
 
         stress_cpu = (cpu_now / 100.0) if cpu_now is not None else 0.0
         stress_load = (load_now / 4.0) if load_now is not None else 0.0
-        stress_temp = (((temp_now - 50) / 25.0) if temp_now is not None and temp_now > 50 else 0.0)
+        stress_temp = ((temp_now - 50) / 25.0) if temp_now is not None and temp_now > 50 else 0.0
 
         stress = max(stress_cpu, stress_load, stress_temp)
 
@@ -616,6 +623,69 @@ class CampaignManager:
         if target > max_delay:
             return max_delay
         return target
+
+    def _format_duration(self, seconds: int | float) -> str:
+        s = int(seconds or 0)
+        h = s // 3600
+        m = (s % 3600) // 60
+        sec = s % 60
+        if h > 0:
+            return f"{h}h{m:02d}m{sec:02d}s"
+        if m > 0:
+            return f"{m}m{sec:02d}s"
+        return f"{sec}s"
+
+    def _entity_label(self, entity_id: str) -> str:
+        state = self.hass.states.get(entity_id)
+        if state is None:
+            return entity_id
+        return state.attributes.get("friendly_name") or entity_id
+
+    def _build_summary_message(self, stopped: bool = False) -> str:
+        ok = len(self.done)
+        ko = len(self.failed)
+        sk = len(self.skipped)
+        remaining = len(self.remaining)
+        total = self.total or (ok + ko + sk + remaining)
+        throttle = "ON" if self._throttle_enabled() else "OFF"
+        duration = self._format_duration(self.duration_s)
+        avg = self._format_duration(self.avg_duration_s) if self.avg_duration_s else "0s"
+        last_device = self._entity_label(self.last_processed_entity) if self.last_processed_entity else "-"
+
+        lines: list[str] = []
+
+        if stopped:
+            lines.append("⏹ Campagne arrêtée")
+        elif ko > 0:
+            lines.append("❌ Campagne terminée avec erreurs")
+        else:
+            lines.append("✅ Campagne terminée avec succès")
+
+        lines.extend(
+            [
+                "",
+                f"Total : {total}",
+                f"Réussis : {ok}",
+                f"Échecs : {ko}",
+                f"Skipped : {sk}",
+                f"Restants : {remaining}",
+                "",
+                f"Durée totale : {duration}",
+                f"Durée moyenne : {avg} / device",
+                f"Throttle : {throttle}",
+                f"Dernier device : {last_device}",
+            ]
+        )
+
+        if self.last_error:
+            lines.extend(["", f"Dernière erreur : {self.last_error}"])
+
+        if self.failed:
+            lines.extend(["", "Échecs :"])
+            for entity_id in self.failed:
+                lines.append(f"- {self._entity_label(entity_id)}")
+
+        return "\n".join(lines)
 
     async def _send_persistent_notification(self, title: str, message: str) -> None:
         await self.hass.services.async_call(
@@ -629,40 +699,9 @@ class CampaignManager:
         )
 
     async def _finish_campaign(self, reset_lists: bool = False, stopped: bool = False) -> None:
-        ok = len(self.done)
-        ko = len(self.failed)
-        sk = len(self.skipped)
-
-        if stopped:
-            title = "ESPHome Smart Updater"
-            message = (
-                "⏹ Campagne arrêtée\n\n"
-                f"Réussis : {ok}\n"
-                f"Échecs : {ko}\n"
-                f"Skipped : {sk}\n"
-            )
-            if self.last_error:
-                message += f"\nDernière erreur : {self.last_error}"
-            await self._send_persistent_notification(title, message)
-        else:
-            title = "ESPHome Smart Updater"
-            if ko > 0:
-                message = (
-                    "❌ Campagne terminée avec erreurs\n\n"
-                    f"Réussis : {ok}\n"
-                    f"Échecs : {ko}\n"
-                    f"Skipped : {sk}\n"
-                )
-                if self.last_error:
-                    message += f"\nDernière erreur : {self.last_error}"
-            else:
-                message = (
-                    "✅ Campagne terminée avec succès\n\n"
-                    f"Réussis : {ok}\n"
-                    f"Échecs : {ko}\n"
-                    f"Skipped : {sk}"
-                )
-            await self._send_persistent_notification(title, message)
+        title = "ESPHome Smart Updater"
+        message = self._build_summary_message(stopped=stopped)
+        await self._send_persistent_notification(title, message)
 
         self.state = "idle"
         self.current = ""
@@ -686,6 +725,7 @@ class CampaignManager:
             self.avg_duration_s = 0
             self.delay_s = 0
             self.last_error = ""
+            self.last_processed_entity = ""
 
     def _reset_runtime_state(self) -> None:
         self.state = "idle"
@@ -711,6 +751,7 @@ class CampaignManager:
         self.stop_requested = False
         self.waiting_ha_started = False
         self.resume_at_ts = 0
+        self.last_processed_entity = ""
 
     async def _async_save(self) -> None:
         data = deepcopy(self.campaign_attributes())
