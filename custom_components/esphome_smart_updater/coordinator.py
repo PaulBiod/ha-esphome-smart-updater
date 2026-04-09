@@ -47,6 +47,7 @@ class CampaignManager:
         self._resume_task: asyncio.Task | None = None
         self._started_unsub = None
         self._shutdown = False
+        self._warned_invalid_sensor_keys: set[str] = set()
 
         self.state = "idle"
         self.queue: list[str] = []
@@ -221,7 +222,7 @@ class CampaignManager:
         await self._async_reconcile_remaining_with_pending()
 
         if not self.remaining:
-            self._finish_campaign()
+            await self._finish_campaign()
             await self._async_save()
             self._notify()
             return
@@ -242,7 +243,7 @@ class CampaignManager:
         self.pause_requested = False
 
         if self.state == "paused":
-            self._finish_campaign(reset_lists=True)
+            await self._finish_campaign(reset_lists=True, stopped=True)
 
         await self._async_save()
         self._notify()
@@ -404,7 +405,7 @@ class CampaignManager:
                 current = self.remaining[0]
 
                 if self.stop_requested:
-                    self._finish_campaign(reset_lists=True)
+                    await self._finish_campaign(reset_lists=True, stopped=True)
                     await self._async_save()
                     self._notify()
                     return
@@ -432,11 +433,9 @@ class CampaignManager:
                     self.total,
                 )
 
-                self.cpu = self._read_float_sensor(CONF_CPU_SENSOR, "sensor.processor_use")
-                self.temp = self._read_float_sensor(
-                    CONF_TEMP_SENSOR, "sensor.processor_temperature"
-                )
-                self.load_1m = self._read_float_sensor(CONF_LOAD_SENSOR, "sensor.load_1m")
+                self.cpu = self._read_metric("cpu")
+                self.temp = self._read_metric("temp")
+                self.load_1m = self._read_metric("load")
 
                 await self._async_save()
                 self._notify()
@@ -467,7 +466,7 @@ class CampaignManager:
                 await self._async_post_item_update()
 
                 if self.stop_requested:
-                    self._finish_campaign(reset_lists=True)
+                    await self._finish_campaign(reset_lists=True, stopped=True)
                     await self._async_save()
                     self._notify()
                     return
@@ -485,7 +484,7 @@ class CampaignManager:
                     self._notify()
                     await asyncio.sleep(delay)
 
-            self._finish_campaign()
+            await self._finish_campaign()
             await self._async_save()
             self._notify()
 
@@ -528,21 +527,87 @@ class CampaignManager:
         state = self.hass.states.get(entity_id)
         return state is None or state.state == "off"
 
+    def _throttle_enabled(self) -> bool:
+        return bool(self.entry.options.get(CONF_THROTTLE, False))
+
+    def _read_metric(self, metric: str) -> float | None:
+        if not self._throttle_enabled():
+            return None
+
+        if metric == "cpu":
+            option_key = CONF_CPU_SENSOR
+            fallback_entity_id = "sensor.processor_use"
+            min_value = 0.0
+            max_value = 100.0
+        elif metric == "temp":
+            option_key = CONF_TEMP_SENSOR
+            fallback_entity_id = "sensor.processor_temperature"
+            min_value = -20.0
+            max_value = 150.0
+        elif metric == "load":
+            option_key = CONF_LOAD_SENSOR
+            fallback_entity_id = "sensor.load_1m"
+            min_value = 0.0
+            max_value = 100.0
+        else:
+            return None
+
+        entity_id = self.entry.options.get(option_key, fallback_entity_id)
+        state = self.hass.states.get(entity_id)
+        if state is None:
+            self._warn_invalid_sensor_once(option_key, entity_id, "entity not found")
+            return None
+
+        try:
+            value = float(state.state)
+        except (TypeError, ValueError):
+            self._warn_invalid_sensor_once(option_key, entity_id, f"non-numeric value: {state.state!r}")
+            return None
+
+        if not (min_value <= value <= max_value):
+            self._warn_invalid_sensor_once(
+                option_key,
+                entity_id,
+                f"value {value} outside expected range [{min_value}, {max_value}]",
+            )
+            return None
+
+        return value
+
+    def _warn_invalid_sensor_once(self, option_key: str, entity_id: str, reason: str) -> None:
+        key = f"{option_key}:{entity_id}:{reason}"
+        if key in self._warned_invalid_sensor_keys:
+            return
+        self._warned_invalid_sensor_keys.add(key)
+        _LOGGER.warning(
+            "Ignoring invalid throttle sensor for %s (%s): %s",
+            option_key,
+            entity_id,
+            reason,
+        )
+
     def _compute_dynamic_delay(self) -> int:
         min_delay = int(self.entry.options.get(CONF_DELAY_MIN, DEFAULT_DELAY_MIN) or DEFAULT_DELAY_MIN)
         max_delay = int(self.entry.options.get(CONF_DELAY_MAX, DEFAULT_DELAY_MAX) or DEFAULT_DELAY_MAX)
 
-        cpu_now = self._read_float_sensor(CONF_CPU_SENSOR, "sensor.processor_use")
-        temp_now = self._read_float_sensor(CONF_TEMP_SENSOR, "sensor.processor_temperature")
-        load_now = self._read_float_sensor(CONF_LOAD_SENSOR, "sensor.load_1m")
+        if not self._throttle_enabled():
+            self.cpu = None
+            self.temp = None
+            self.load_1m = None
+            return min_delay
+
+        cpu_now = self._read_metric("cpu")
+        temp_now = self._read_metric("temp")
+        load_now = self._read_metric("load")
 
         self.cpu = cpu_now
         self.temp = temp_now
         self.load_1m = load_now
 
-        stress_cpu = cpu_now / 100.0
-        stress_load = load_now / 4.0
-        stress_temp = ((temp_now - 50) / 25.0) if temp_now > 50 else 0.0
+        stress_cpu = (cpu_now / 100.0) if cpu_now is not None else 0.0
+        stress_load = (load_now / 4.0) if load_now is not None else 0.0
+        stress_temp = (((temp_now - 50) / 25.0) if temp_now is not None and temp_now > 50 else 0.0)
+
         stress = max(stress_cpu, stress_load, stress_temp)
 
         target = int(min_delay + stress * (max_delay - min_delay))
@@ -552,17 +617,53 @@ class CampaignManager:
             return max_delay
         return target
 
-    def _read_float_sensor(self, option_key: str, fallback_entity_id: str) -> float:
-        entity_id = self.entry.options.get(option_key, fallback_entity_id)
-        state = self.hass.states.get(entity_id)
-        if state is None:
-            return 0.0
-        try:
-            return float(state.state)
-        except (TypeError, ValueError):
-            return 0.0
+    async def _send_persistent_notification(self, title: str, message: str) -> None:
+        await self.hass.services.async_call(
+            "persistent_notification",
+            "create",
+            {
+                "title": title,
+                "message": message,
+            },
+            blocking=False,
+        )
 
-    def _finish_campaign(self, reset_lists: bool = False) -> None:
+    async def _finish_campaign(self, reset_lists: bool = False, stopped: bool = False) -> None:
+        ok = len(self.done)
+        ko = len(self.failed)
+        sk = len(self.skipped)
+
+        if stopped:
+            title = "ESPHome Smart Updater"
+            message = (
+                "⏹ Campagne arrêtée\n\n"
+                f"Réussis : {ok}\n"
+                f"Échecs : {ko}\n"
+                f"Skipped : {sk}\n"
+            )
+            if self.last_error:
+                message += f"\nDernière erreur : {self.last_error}"
+            await self._send_persistent_notification(title, message)
+        else:
+            title = "ESPHome Smart Updater"
+            if ko > 0:
+                message = (
+                    "❌ Campagne terminée avec erreurs\n\n"
+                    f"Réussis : {ok}\n"
+                    f"Échecs : {ko}\n"
+                    f"Skipped : {sk}\n"
+                )
+                if self.last_error:
+                    message += f"\nDernière erreur : {self.last_error}"
+            else:
+                message = (
+                    "✅ Campagne terminée avec succès\n\n"
+                    f"Réussis : {ok}\n"
+                    f"Échecs : {ko}\n"
+                    f"Skipped : {sk}"
+                )
+            await self._send_persistent_notification(title, message)
+
         self.state = "idle"
         self.current = ""
         self.current_update_entity = ""
