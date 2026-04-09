@@ -20,6 +20,7 @@ from .const import (
     CONF_MAX_ITEMS,
     CONF_RESTORE_RESUME_DELAY,
     CONF_TEMP_SENSOR,
+    CONF_THROTTLE,
     CONF_TIMEOUT,
     DEFAULT_DELAY_MAX,
     DEFAULT_DELAY_MIN,
@@ -153,6 +154,7 @@ class CampaignManager:
             "waiting_ha_started": self.waiting_ha_started,
             "resume_at_ts": self.resume_at_ts,
             "last_error": self.last_error,
+            "throttle_enabled": bool(self.entry.options.get(CONF_THROTTLE, False)),
         }
 
     async def async_start(self) -> None:
