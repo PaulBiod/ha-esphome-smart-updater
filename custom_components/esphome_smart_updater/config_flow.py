@@ -1,12 +1,17 @@
 from __future__ import annotations
 
 import voluptuous as vol
+
 from homeassistant import config_entries
+from homeassistant.helpers import selector
 
 from .const import (
+    CONF_CPU_SENSOR,
     CONF_DELAY_MAX,
     CONF_DELAY_MIN,
+    CONF_LOAD_SENSOR,
     CONF_MAX_ITEMS,
+    CONF_TEMP_SENSOR,
     CONF_THROTTLE,
     CONF_TIMEOUT,
     DEFAULT_DELAY_MAX,
@@ -36,10 +41,21 @@ class ESPHomeSmartUpdaterConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
 class ESPHomeSmartUpdaterOptionsFlow(config_entries.OptionsFlow):
     async def async_step_init(self, user_input=None):
-        if user_input is not None:
-            return self.async_create_entry(title="", data=user_input)
-
         options = dict(self.config_entry.options)
+
+        if user_input is not None:
+            self.options_data = dict(user_input)
+
+            if user_input.get(CONF_THROTTLE, False):
+                return await self.async_step_throttle()
+
+            self.options_data.pop(CONF_CPU_SENSOR, None)
+            self.options_data.pop(CONF_TEMP_SENSOR, None)
+            self.options_data.pop(CONF_LOAD_SENSOR, None)
+            self.options_data.pop(CONF_DELAY_MIN, None)
+            self.options_data.pop(CONF_DELAY_MAX, None)
+
+            return self.async_create_entry(title="", data=self.options_data)
 
         return self.async_show_form(
             step_id="init",
@@ -48,23 +64,84 @@ class ESPHomeSmartUpdaterOptionsFlow(config_entries.OptionsFlow):
                     vol.Optional(
                         CONF_TIMEOUT,
                         default=options.get(CONF_TIMEOUT, DEFAULT_TIMEOUT),
-                    ): vol.All(vol.Coerce(int), vol.Range(min=60, max=3600)),
+                    ): selector.NumberSelector(
+                        selector.NumberSelectorConfig(
+                            min=60,
+                            max=3600,
+                            step=30,
+                            mode=selector.NumberSelectorMode.BOX,
+                        )
+                    ),
                     vol.Optional(
                         CONF_MAX_ITEMS,
                         default=options.get(CONF_MAX_ITEMS, DEFAULT_MAX_ITEMS),
-                    ): vol.All(vol.Coerce(int), vol.Range(min=1, max=20)),
+                    ): selector.NumberSelector(
+                        selector.NumberSelectorConfig(
+                            min=1,
+                            max=20,
+                            step=1,
+                            mode=selector.NumberSelectorMode.BOX,
+                        )
+                    ),
                     vol.Optional(
                         CONF_THROTTLE,
                         default=options.get(CONF_THROTTLE, False),
-                    ): bool,
-                    vol.Optional(
-                        CONF_DELAY_MIN,
-                        default=options.get(CONF_DELAY_MIN, DEFAULT_DELAY_MIN),
-                    ): vol.All(vol.Coerce(int), vol.Range(min=1, max=120)),
-                    vol.Optional(
-                        CONF_DELAY_MAX,
-                        default=options.get(CONF_DELAY_MAX, DEFAULT_DELAY_MAX),
-                    ): vol.All(vol.Coerce(int), vol.Range(min=1, max=300)),
+                    ): selector.BooleanSelector(),
                 }
             ),
+        )
+
+    async def async_step_throttle(self, user_input=None):
+        options = dict(self.config_entry.options)
+
+        if user_input is not None:
+            self.options_data.update(user_input)
+            return self.async_create_entry(title="", data=self.options_data)
+
+        schema = {
+            vol.Optional(
+                CONF_CPU_SENSOR,
+                default=options.get(CONF_CPU_SENSOR),
+            ): selector.EntitySelector(
+                selector.EntitySelectorConfig(domain="sensor", multiple=False)
+            ),
+            vol.Optional(
+                CONF_TEMP_SENSOR,
+                default=options.get(CONF_TEMP_SENSOR),
+            ): selector.EntitySelector(
+                selector.EntitySelectorConfig(domain="sensor", multiple=False)
+            ),
+            vol.Optional(
+                CONF_LOAD_SENSOR,
+                default=options.get(CONF_LOAD_SENSOR),
+            ): selector.EntitySelector(
+                selector.EntitySelectorConfig(domain="sensor", multiple=False)
+            ),
+            vol.Optional(
+                CONF_DELAY_MIN,
+                default=options.get(CONF_DELAY_MIN, DEFAULT_DELAY_MIN),
+            ): selector.NumberSelector(
+                selector.NumberSelectorConfig(
+                    min=1,
+                    max=120,
+                    step=1,
+                    mode=selector.NumberSelectorMode.BOX,
+                )
+            ),
+            vol.Optional(
+                CONF_DELAY_MAX,
+                default=options.get(CONF_DELAY_MAX, DEFAULT_DELAY_MAX),
+            ): selector.NumberSelector(
+                selector.NumberSelectorConfig(
+                    min=1,
+                    max=300,
+                    step=1,
+                    mode=selector.NumberSelectorMode.BOX,
+                )
+            ),
+        }
+
+        return self.async_show_form(
+            step_id="throttle",
+            data_schema=vol.Schema(schema),
         )
