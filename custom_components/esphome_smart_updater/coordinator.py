@@ -7,7 +7,8 @@ from collections.abc import Callable
 from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
+from homeassistant.const import EVENT_HOMEASSISTANT_STARTED
+from homeassistant.core import Event, HomeAssistant
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.storage import Store
 
@@ -42,6 +43,7 @@ class CampaignManager:
         self._task: asyncio.Task | None = None
         self._save_task: asyncio.Task | None = None
         self._restore_resume_task: asyncio.Task | None = None
+        self._pending_refresh_task: asyncio.Task | None = None
         self._shutdown = False
         self._run_id = 0
 
@@ -80,14 +82,17 @@ class CampaignManager:
 
         self.restored_after_restart = False
         self.resume_at_ts = 0
+        self._waiting_ha_started = False
 
     async def async_initialize(self) -> None:
         await self._async_restore_state()
+        self._start_pending_refresh_loop()
 
     async def async_shutdown(self) -> None:
         self._shutdown = True
         await self._cancel_restore_resume_task()
         await self._cancel_run_task()
+        await self._cancel_pending_refresh_task()
 
         if self._save_task and not self._save_task.done():
             try:
@@ -114,6 +119,28 @@ class CampaignManager:
             except asyncio.CancelledError:
                 pass
         self._restore_resume_task = None
+
+    async def _cancel_pending_refresh_task(self) -> None:
+        if self._pending_refresh_task and not self._pending_refresh_task.done():
+            self._pending_refresh_task.cancel()
+            try:
+                await self._pending_refresh_task
+            except asyncio.CancelledError:
+                pass
+        self._pending_refresh_task = None
+
+    def _start_pending_refresh_loop(self) -> None:
+        if self._pending_refresh_task and not self._pending_refresh_task.done():
+            return
+        self._pending_refresh_task = self.hass.async_create_task(self._pending_refresh_loop())
+
+    async def _pending_refresh_loop(self) -> None:
+        try:
+            while not self._shutdown:
+                self._push()
+                await asyncio.sleep(15)
+        except asyncio.CancelledError:
+            raise
 
     def _run_active(self) -> bool:
         return self._task is not None and not self._task.done()
@@ -181,11 +208,24 @@ class CampaignManager:
             )
 
             self._push()
-            self._restore_resume_task = self.hass.async_create_task(self._async_delayed_restore_resume())
+            self._schedule_restore_resume_after_ha_started()
             return
 
         self._update_metrics()
         self._push()
+
+    def _schedule_restore_resume_after_ha_started(self) -> None:
+        if self.hass.is_running:
+            self._restore_resume_task = self.hass.async_create_task(self._async_delayed_restore_resume())
+            return
+
+        self._waiting_ha_started = True
+
+        async def _on_started(_: Event) -> None:
+            self._waiting_ha_started = False
+            self._restore_resume_task = self.hass.async_create_task(self._async_delayed_restore_resume())
+
+        self.hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, _on_started)
 
     async def _async_delayed_restore_resume(self) -> None:
         try:
@@ -193,6 +233,7 @@ class CampaignManager:
                 remaining = self.resume_at_ts - int(time.time())
                 if remaining <= 0:
                     break
+                self._push()
                 await asyncio.sleep(min(5, remaining))
 
             if self._shutdown:
@@ -621,6 +662,7 @@ class CampaignManager:
         self.load_1m = None
         self.restored_after_restart = False
         self.resume_at_ts = 0
+        self._waiting_ha_started = False
 
         self._push()
 
@@ -650,4 +692,5 @@ class CampaignManager:
             "restored_after_restart": self.restored_after_restart,
             "resume_at_ts": self.resume_at_ts,
             "run_active": self._run_active(),
+            "waiting_ha_started": self._waiting_ha_started,
         }
