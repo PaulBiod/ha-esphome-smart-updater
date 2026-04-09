@@ -1,19 +1,26 @@
-from homeassistant.components.button import ButtonEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import DOMAIN
+from .coordinator import CampaignManager
 
-async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
-    async_add_entities([ESPHomeSmartUpdaterStartButton(hass, entry)])
+PLATFORMS = ["button", "sensor"]
 
-class ESPHomeSmartUpdaterStartButton(ButtonEntity):
-    _attr_name = "ESPHome Smart Updater Start"
-    _attr_unique_id = "esphome_smart_updater_start"
-    def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
-        self.hass = hass
-        self.entry = entry
-    async def async_press(self) -> None:
-        manager = self.hass.data[DOMAIN][self.entry.entry_id]
-        await manager.start()
+
+async def async_setup(hass: HomeAssistant, config: dict) -> bool:
+    return True
+
+
+async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    hass.data.setdefault(DOMAIN, {})
+    manager = CampaignManager(hass)
+    hass.data[DOMAIN][entry.entry_id] = manager
+    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    return True
+
+
+async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    if unload_ok:
+        hass.data[DOMAIN].pop(entry.entry_id, None)
+    return unload_ok
