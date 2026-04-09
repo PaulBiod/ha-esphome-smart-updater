@@ -78,7 +78,7 @@ class ESPHomeSmartUpdaterOptionsFlow(config_entries.OptionsFlow):
                     ): selector.NumberSelector(
                         selector.NumberSelectorConfig(
                             min=1,
-                            max=20,
+                            max=50,
                             step=1,
                             mode=selector.NumberSelectorMode.BOX,
                         )
@@ -98,50 +98,50 @@ class ESPHomeSmartUpdaterOptionsFlow(config_entries.OptionsFlow):
             self.options_data.update(user_input)
             return self.async_create_entry(title="", data=self.options_data)
 
-        schema = {
-            vol.Optional(
-                CONF_CPU_SENSOR,
-                default=options.get(CONF_CPU_SENSOR),
-            ): selector.EntitySelector(
-                selector.EntitySelectorConfig(domain="sensor", multiple=False)
-            ),
-            vol.Optional(
-                CONF_TEMP_SENSOR,
-                default=options.get(CONF_TEMP_SENSOR),
-            ): selector.EntitySelector(
-                selector.EntitySelectorConfig(domain="sensor", multiple=False)
-            ),
-            vol.Optional(
-                CONF_LOAD_SENSOR,
-                default=options.get(CONF_LOAD_SENSOR),
-            ): selector.EntitySelector(
-                selector.EntitySelectorConfig(domain="sensor", multiple=False)
-            ),
-            vol.Optional(
-                CONF_DELAY_MIN,
-                default=options.get(CONF_DELAY_MIN, DEFAULT_DELAY_MIN),
-            ): selector.NumberSelector(
-                selector.NumberSelectorConfig(
-                    min=1,
-                    max=120,
-                    step=1,
-                    mode=selector.NumberSelectorMode.BOX,
-                )
-            ),
-            vol.Optional(
-                CONF_DELAY_MAX,
-                default=options.get(CONF_DELAY_MAX, DEFAULT_DELAY_MAX),
-            ): selector.NumberSelector(
-                selector.NumberSelectorConfig(
-                    min=1,
-                    max=300,
-                    step=1,
-                    mode=selector.NumberSelectorMode.BOX,
-                )
-            ),
-        }
-
         return self.async_show_form(
             step_id="throttle",
-            data_schema=vol.Schema(schema),
+            data_schema=vol.Schema(
+                {
+                    vol.Optional(
+                        CONF_CPU_SENSOR,
+                        default=options.get(CONF_CPU_SENSOR),
+                    ): selector.EntitySelector(
+                        selector.EntitySelectorConfig(domain="sensor", multiple=False)
+                    ),
+                    vol.Optional(
+                        CONF_TEMP_SENSOR,
+                        default=options.get(CONF_TEMP_SENSOR),
+                    ): selector.EntitySelector(
+                        selector.EntitySelectorConfig(domain="sensor", multiple=False)
+                    ),
+                    vol.Optional(
+                        CONF_LOAD_SENSOR,
+                        default=options.get(CONF_LOAD_SENSOR),
+                    ): selector.EntitySelector(
+                        selector.EntitySelectorConfig(domain="sensor", multiple=False)
+                    ),
+                    vol.Optional(
+                        CONF_DELAY_MIN,
+                        default=options.get(CONF_DELAY_MIN, DEFAULT_DELAY_MIN),
+                    ): selector.NumberSelector(
+                        selector.NumberSelectorConfig(
+                            min=1,
+                            max=120,
+                            step=1,
+                            mode=selector.NumberSelectorMode.BOX,
+                        )
+                    ),
+                    vol.Optional(
+                        CONF_DELAY_MAX,
+                        default=options.get(CONF_DELAY_MAX, DEFAULT_DELAY_MAX),
+                    ): selector.NumberSelector(
+                        selector.NumberSelectorConfig(
+                            min=1,
+                            max=300,
+                            step=1,
+                            mode=selector.NumberSelectorMode.BOX,
+                        )
+                    ),
+                }
+            ),
         )
