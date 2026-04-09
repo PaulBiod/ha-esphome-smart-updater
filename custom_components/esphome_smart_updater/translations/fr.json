@@ -2,11 +2,41 @@
   "config": {
     "abort": {
       "single_instance_allowed": "Une seule instance est autorisée."
-    },
+    }
+  },
+  "options": {
     "step": {
-      "user": {
-        "title": "ESPHome Smart Updater",
-        "description": "Créer l'intégration ESPHome Smart Updater."
+      "init": {
+        "title": "Options générales",
+        "description": "Configurer le comportement général de la campagne de mise à jour.",
+        "data": {
+          "timeout": "Timeout",
+          "max_items": "Nombre max d'appareils par lot",
+          "throttle": "Activer le throttling dynamique"
+        },
+        "data_description": {
+          "timeout": "Temps maximum d'attente, en secondes, pour qu'une mise à jour se termine avant de la marquer en échec.",
+          "max_items": "Limite le nombre d'appareils traités dans un lot. Utile surtout pour les tests. En usage final, mettre une valeur élevée ou retirer cette logique plus tard.",
+          "throttle": "Adapte automatiquement le délai entre deux updates selon la charge du serveur."
+        }
+      },
+      "throttle": {
+        "title": "Options du throttling",
+        "description": "Choisis les capteurs utilisés pour mesurer la charge du serveur et les délais mini/maxi appliqués entre deux mises à jour.",
+        "data": {
+          "cpu_sensor": "Capteur CPU",
+          "temp_sensor": "Capteur température CPU",
+          "load_sensor": "Capteur load",
+          "delay_min": "Délai minimum",
+          "delay_max": "Délai maximum"
+        },
+        "data_description": {
+          "cpu_sensor": "Capteur représentant l'utilisation CPU en pourcentage.",
+          "temp_sensor": "Capteur représentant la température CPU, idéalement en °C.",
+          "load_sensor": "Capteur représentant la charge système, par exemple load 1m.",
+          "delay_min": "Délai minimum, en secondes, entre deux mises à jour quand la charge est faible.",
+          "delay_max": "Délai maximum, en secondes, entre deux mises à jour quand la charge est élevée."
+        }
       }
     }
   }
