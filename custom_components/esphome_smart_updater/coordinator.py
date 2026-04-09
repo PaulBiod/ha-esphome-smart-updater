@@ -42,6 +42,7 @@ class CampaignManager:
         self._save_task: asyncio.Task | None = None
         self._restore_resume_task: asyncio.Task | None = None
         self._shutdown = False
+        self._run_id = 0
 
         self._store = Store[dict[str, Any]](
             hass,
@@ -84,20 +85,8 @@ class CampaignManager:
 
     async def async_shutdown(self) -> None:
         self._shutdown = True
-
-        if self._restore_resume_task and not self._restore_resume_task.done():
-            self._restore_resume_task.cancel()
-            try:
-                await self._restore_resume_task
-            except asyncio.CancelledError:
-                pass
-
-        if self._task and not self._task.done():
-            self._task.cancel()
-            try:
-                await self._task
-            except asyncio.CancelledError:
-                pass
+        await self._cancel_restore_resume_task()
+        await self._cancel_run_task()
 
         if self._save_task and not self._save_task.done():
             try:
@@ -106,6 +95,34 @@ class CampaignManager:
                 pass
 
         await self._async_save_state()
+
+    async def _cancel_run_task(self) -> None:
+        if self._task and not self._task.done():
+            self._task.cancel()
+            try:
+                await self._task
+            except asyncio.CancelledError:
+                pass
+        self._task = None
+
+    async def _cancel_restore_resume_task(self) -> None:
+        if self._restore_resume_task and not self._restore_resume_task.done():
+            self._restore_resume_task.cancel()
+            try:
+                await self._restore_resume_task
+            except asyncio.CancelledError:
+                pass
+        self._restore_resume_task = None
+
+    def _run_active(self) -> bool:
+        return self._task is not None and not self._task.done()
+
+    def _schedule_run(self) -> None:
+        if self._shutdown or self._run_active():
+            return
+        self._run_id += 1
+        run_id = self._run_id
+        self._task = self.hass.async_create_task(self._run(run_id))
 
     def add_listener(self, callback: Callable[[], None]) -> Callable[[], None]:
         self._listeners.append(callback)
@@ -178,12 +195,20 @@ class CampaignManager:
             if self._shutdown:
                 return
 
-            if self.state == "paused" and self.restored_after_restart and self.remaining and not self.stop_requested:
+            if (
+                self.state == "paused"
+                and self.restored_after_restart
+                and self.remaining
+                and not self.stop_requested
+                and not self._run_active()
+            ):
                 await self.async_resume(from_restore=True)
         except asyncio.CancelledError:
             raise
         except Exception:
             _LOGGER.exception("Failed delayed restore resume")
+        finally:
+            self._restore_resume_task = None
 
     def _snapshot(self) -> dict[str, Any]:
         return {
@@ -322,8 +347,10 @@ class CampaignManager:
         return max(delay_min, min(delay_max, smooth))
 
     async def async_start(self) -> None:
-        if self.state in ("running", "paused"):
+        if self.state in ("running", "paused") or self._run_active():
             return
+
+        await self._cancel_restore_resume_task()
 
         updates = self._find_esphome_updates()
         max_items = int(self._get_option(CONF_MAX_ITEMS, DEFAULT_MAX_ITEMS))
@@ -362,19 +389,21 @@ class CampaignManager:
 
         self.state = "running"
         self._push()
-
-        self._task = self.hass.async_create_task(self._run())
+        self._schedule_run()
 
     async def async_pause(self) -> None:
         if self.state == "running":
+            await self._cancel_restore_resume_task()
             self.pause_requested = True
             self.restored_after_restart = False
             self.resume_at_ts = 0
             self._push()
 
     async def async_resume(self, from_restore: bool = False) -> None:
-        if self.state != "paused":
+        if self.state != "paused" or self._run_active():
             return
+
+        await self._cancel_restore_resume_task()
 
         self.pause_requested = False
         self.stop_requested = False
@@ -382,11 +411,11 @@ class CampaignManager:
         self.restored_after_restart = from_restore
         self.resume_at_ts = 0
         self._push()
-
-        self._task = self.hass.async_create_task(self._run())
+        self._schedule_run()
 
     async def async_stop(self) -> None:
         if self.state in ("running", "paused"):
+            await self._cancel_restore_resume_task()
             self.stop_requested = True
             self.restored_after_restart = False
             self.resume_at_ts = 0
@@ -395,27 +424,69 @@ class CampaignManager:
             else:
                 self._push()
 
-    async def _run(self) -> None:
+    async def _run(self, run_id: int) -> None:
         timeout_s = int(self._get_option(CONF_TIMEOUT, DEFAULT_TIMEOUT))
 
-        while self.remaining and not self._shutdown:
-            current = self.remaining[0]
-            self.current = current
-            self.current_update_entity = current
-            self.index += 1
-            self._push()
+        try:
+            while self.remaining and not self._shutdown:
+                if run_id != self._run_id:
+                    return
 
-            try:
-                await self.hass.services.async_call(
-                    "update",
-                    "install",
-                    {"entity_id": current},
-                    blocking=True,
-                )
-            except Exception as exc:
-                _LOGGER.exception("ESU install call failed for %s", current)
-                self.failed.append(current)
-                self.last_error = f"install_call_failed: {exc.__class__.__name__}"
+                current = self.remaining[0]
+                self.current = current
+                self.current_update_entity = current
+                self.index += 1
+                self._push()
+
+                try:
+                    await self.hass.services.async_call(
+                        "update",
+                        "install",
+                        {"entity_id": current},
+                        blocking=True,
+                    )
+                except Exception as exc:
+                    _LOGGER.exception("ESU install call failed for %s", current)
+                    self.failed.append(current)
+                    self.last_error = f"install_call_failed: {exc.__class__.__name__}"
+                    self.remaining = self.remaining[1:]
+                    self.current = ""
+                    self.current_update_entity = ""
+                    self._update_metrics()
+                    self._push()
+
+                    if await self._handle_pause_stop():
+                        return
+
+                    if self.remaining:
+                        await self._delay_between_items(run_id)
+                    continue
+
+                start_wait = time.time()
+                success = False
+
+                while not self._shutdown:
+                    if run_id != self._run_id:
+                        return
+
+                    st = self.hass.states.get(current)
+
+                    if st is not None and st.state == "off":
+                        success = True
+                        break
+
+                    if time.time() - start_wait > timeout_s:
+                        break
+
+                    await asyncio.sleep(5)
+
+                if success:
+                    self.done.append(current)
+                    self.last_error = ""
+                else:
+                    self.failed.append(current)
+                    self.last_error = "timeout_or_still_on"
+
                 self.remaining = self.remaining[1:]
                 self.current = ""
                 self.current_update_entity = ""
@@ -426,50 +497,24 @@ class CampaignManager:
                     return
 
                 if self.remaining:
-                    await self._delay_between_items()
-                continue
+                    await self._delay_between_items(run_id)
 
-            start_wait = time.time()
-            success = False
+            if not self._shutdown and run_id == self._run_id:
+                await self._finish_and_reset(stopped=False)
+        finally:
+            if self._task and asyncio.current_task() is self._task:
+                self._task = None
 
-            while not self._shutdown:
-                st = self.hass.states.get(current)
-
-                if st is not None and st.state == "off":
-                    success = True
-                    break
-
-                if time.time() - start_wait > timeout_s:
-                    break
-
-                await asyncio.sleep(5)
-
-            if success:
-                self.done.append(current)
-                self.last_error = ""
-            else:
-                self.failed.append(current)
-                self.last_error = "timeout_or_still_on"
-
-            self.remaining = self.remaining[1:]
-            self.current = ""
-            self.current_update_entity = ""
-            self._update_metrics()
-            self._push()
-
-            if await self._handle_pause_stop():
-                return
-
-            if self.remaining:
-                await self._delay_between_items()
-
-        if not self._shutdown:
-            await self._finish_and_reset(stopped=False)
-
-    async def _delay_between_items(self) -> None:
+    async def _delay_between_items(self, run_id: int) -> None:
         self.delay_s = self._compute_delay()
         self._push()
-        await asyncio.sleep(self.delay_s)
+
+        remaining = self.delay_s
+        while remaining > 0 and not self._shutdown:
+            if run_id != self._run_id:
+                return
+            await asyncio.sleep(min(1, remaining))
+            remaining -= 1
 
     async def _handle_pause_stop(self) -> bool:
         if self.stop_requested:
@@ -593,4 +638,5 @@ class CampaignManager:
             "load_1m": self.load_1m,
             "restored_after_restart": self.restored_after_restart,
             "resume_at_ts": self.resume_at_ts,
+            "run_active": self._run_active(),
         }
