@@ -3,7 +3,9 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Callable
 from copy import deepcopy
+import json
 import logging
+from pathlib import Path
 import time
 
 from homeassistant.config_entries import ConfigEntry
@@ -175,6 +177,7 @@ class CampaignManager:
             "last_report_ts": self.last_report_ts,
             "report_available": self.report_available,
             "throttle_enabled": self.throttle_enabled,
+            "no_update_text": self._get_no_update_text(),
         }
 
     @property
@@ -184,6 +187,30 @@ class CampaignManager:
     @property
     def throttle_enabled(self) -> bool:
         return bool(self.entry.options.get(CONF_THROTTLE, False))
+
+    def _load_translation_text(self, language: str, key: str) -> str | None:
+        translations_dir = Path(__file__).parent / "translations"
+        candidates = [language, language.split("-", 1)[0], "en"]
+
+        for candidate in candidates:
+            path = translations_dir / f"{candidate}.json"
+            if not path.exists():
+                continue
+            try:
+                data = json.loads(path.read_text(encoding="utf-8"))
+            except Exception:
+                _LOGGER.exception("Unable to read translation file %s", path)
+                continue
+
+            value = data.get("ui", {}).get(key)
+            if isinstance(value, str) and value:
+                return value
+
+        return None
+
+    def _get_no_update_text(self) -> str:
+        language = self.hass.config.language or "en"
+        return self._load_translation_text(language, "no_updates") or "✅ All your devices are up to date"
 
     async def async_start(self) -> None:
         await self._async_refresh_pending_updates()
