@@ -28,5 +28,8 @@
         }
       }
     }
+  },
+  "ui": {
+    "no_updates": "✅ Tous vos appareils ESPHome sont à jour"
   }
 }
