@@ -136,6 +136,11 @@ class CampaignManager:
         return list(self._pending_update_entities)
 
     def campaign_attributes(self) -> dict:
+        report_available = bool(self.last_report)
+        throttle_enabled = bool(self.entry.options.get(CONF_THROTTLE, False))
+        pause_requested = bool(self.pause_requested)
+        stop_requested = bool(self.stop_requested)
+
         return {
             "queue": list(self.queue),
             "remaining": list(self.remaining),
@@ -155,18 +160,20 @@ class CampaignManager:
             "cpu": self.cpu,
             "temp": self.temp,
             "load_1m": self.load_1m,
-            "pause_requested": self.pause_requested,
-            "stop_requested": self.stop_requested,
+            "pause_requested": pause_requested,
+            "pause_requested_str": "true" if pause_requested else "false",
+            "stop_requested": stop_requested,
+            "stop_requested_str": "true" if stop_requested else "false",
             "waiting_ha_started": self.waiting_ha_started,
             "resume_at_ts": self.resume_at_ts,
             "last_error": self.last_error,
             "last_processed_entity": self.last_processed_entity,
             "last_report": self.last_report,
             "last_report_ts": self.last_report_ts,
-            "report_available": bool(self.last_report),
-            "report_available_str": "true" if self.last_report else "false",
-            "throttle_enabled": bool(self.entry.options.get(CONF_THROTTLE, False)),
-            "throttle_enabled_str": "true" if self._throttle_enabled() else "false",
+            "report_available": report_available,
+            "report_available_str": "true" if report_available else "false",
+            "throttle_enabled": throttle_enabled,
+            "throttle_enabled_str": "true" if throttle_enabled else "false",
         }
 
     async def async_start(self) -> None:
@@ -392,7 +399,7 @@ class CampaignManager:
         self.resume_at_ts = int(data.get("resume_at_ts", 0) or 0)
         self.last_error = data.get("last_error", "")
         self.last_processed_entity = data.get("last_processed_entity", "")
-        self.last_report = data.get("last_report") or None
+        self.last_report = data.get("last_report")
         self.last_report_ts = int(data.get("last_report_ts", 0) or 0)
 
         if self.state in ("running", "paused") and self.remaining:
