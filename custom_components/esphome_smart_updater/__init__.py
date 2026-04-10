@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, ServiceCall
@@ -18,7 +17,7 @@ from .coordinator import CampaignManager
 
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORMS = ["sensor", "button"]
+PLATFORMS = ["sensor", "button", "binary_sensor"]
 
 
 def _get_manager(hass: HomeAssistant) -> CampaignManager | None:
