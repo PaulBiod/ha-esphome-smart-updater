@@ -28,5 +28,8 @@
         }
       }
     }
+  },
+  "ui": {
+    "no_updates": "✅ All your devices are up to date"
   }
 }
