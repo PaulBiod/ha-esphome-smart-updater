@@ -81,6 +81,7 @@ class CampaignManager:
         self.resume_at_ts = 0
         self.last_error = ""
         self.current_error = ""
+        self.current_error_level = ""
         self.recent_errors: list[str] = []
         self.last_processed_entity = ""
 
@@ -166,7 +167,9 @@ class CampaignManager:
             "resume_at_ts": self.resume_at_ts,
             "last_error": self.last_error,
             "current_error": self.current_error,
+            "current_error_level": self.current_error_level,
             "recent_errors": list(self.recent_errors),
+            "recent_errors_text": "\n".join(self.recent_errors),
             "last_processed_entity": self.last_processed_entity,
             "last_report": self.last_report,
             "last_report_ts": self.last_report_ts,
@@ -222,7 +225,8 @@ class CampaignManager:
         self.resume_at_ts = 0
         self.last_error = ""
         self.current_error = ""
-        self.recent_errors = []
+        self.current_error_level = ""
+        self.recent_errors: list[str] = []
         self.last_processed_entity = ""
         self.last_report = None
         self.last_report_ts = 0
@@ -248,6 +252,7 @@ class CampaignManager:
         self.resume_at_ts = 0
         self.last_error = ""
         self.current_error = ""
+        self.current_error_level = ""
 
         await self._async_refresh_pending_updates()
         await self._async_reconcile_remaining_with_pending()
@@ -308,7 +313,8 @@ class CampaignManager:
         self.resume_at_ts = 0
         self.last_error = ""
         self.current_error = ""
-        self.recent_errors = []
+        self.current_error_level = ""
+        self.recent_errors: list[str] = []
         self.last_processed_entity = ""
         self.last_report = None
         self.last_report_ts = 0
@@ -413,6 +419,7 @@ class CampaignManager:
         self.resume_at_ts = int(data.get("resume_at_ts", 0) or 0)
         self.last_error = data.get("last_error", "")
         self.current_error = data.get("current_error", "")
+        self.current_error_level = data.get("current_error_level", "")
         self.recent_errors = data.get("recent_errors", [])
         self.last_processed_entity = data.get("last_processed_entity", "")
         self.last_report = data.get("last_report")
@@ -551,6 +558,7 @@ class CampaignManager:
 
                 if success:
                     self.current_error = ""
+                    self.current_error_level = ""
                     if current not in self.done:
                         self.done.append(current)
                 else:
@@ -595,6 +603,7 @@ class CampaignManager:
             self.current_update_entity = ""
             self.last_error = "worker_crashed"
             self.current_error = "worker crashed"
+            self.current_error_level = "critical"
             self.recent_errors = (self.recent_errors + [self.current_error])[-3:]
             await self._async_save()
             self._notify()
@@ -768,17 +777,24 @@ class CampaignManager:
         return self._clean_entity_label(state.attributes.get("friendly_name") or entity_id)
 
 
+    def _error_level_from_reason(self, reason: str) -> str:
+        reason_lower = (reason or "").lower()
+        if "timeout" in reason_lower:
+            return "warning"
+        return "critical"
+
     def _add_failed_detail(self, entity_id: str, reason: str) -> None:
         if entity_id and entity_id not in self.failed:
             self.failed.append(entity_id)
 
         label = self._entity_label(entity_id)
         self.current_error = f"{label} : {reason}" if label else reason
+        self.current_error_level = self._error_level_from_reason(reason)
         self.recent_errors = (self.recent_errors + [self.current_error])[-3:]
 
         detail = {
             "entity_id": entity_id,
-            "entity_label": self._entity_label(entity_id),
+            "entity_label": label,
             "reason": reason,
         }
 
@@ -882,6 +898,8 @@ class CampaignManager:
         self.index = 0
         self.eta_s = 0
         self.delay_s = 0
+        self.current_error = ""
+        self.current_error_level = ""
 
     def _reset_runtime_state(self) -> None:
         self.state = "idle"
@@ -910,7 +928,8 @@ class CampaignManager:
         self.resume_at_ts = 0
         self.last_error = ""
         self.current_error = ""
-        self.recent_errors = []
+        self.current_error_level = ""
+        self.recent_errors: list[str] = []
         self.last_processed_entity = ""
         self.last_report = None
         self.last_report_ts = 0
