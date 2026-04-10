@@ -56,6 +56,7 @@ class CampaignManager:
         self.remaining: list[str] = []
         self.done: list[str] = []
         self.failed: list[str] = []
+        self.failed_details: list[dict[str, str]] = []
         self.skipped: list[str] = []
 
         self.current = ""
@@ -142,6 +143,7 @@ class CampaignManager:
             "remaining": list(self.remaining),
             "done": list(self.done),
             "failed": list(self.failed),
+            "failed_details": list(self.failed_details),
             "skipped": list(self.skipped),
             "current": self.current,
             "current_update_entity": self.current_update_entity,
@@ -196,6 +198,7 @@ class CampaignManager:
         self.remaining = list(updates)
         self.done = []
         self.failed = []
+        self.failed_details = []
         self.skipped = []
         self.current = ""
         self.current_update_entity = ""
@@ -277,6 +280,7 @@ class CampaignManager:
         self.remaining = []
         self.done = []
         self.failed = []
+        self.failed_details = []
         self.skipped = []
         self.current = ""
         self.current_update_entity = ""
@@ -373,6 +377,7 @@ class CampaignManager:
         self.remaining = data.get("remaining", [])
         self.done = data.get("done", [])
         self.failed = data.get("failed", [])
+        self.failed_details = data.get("failed_details", [])
         self.skipped = data.get("skipped", [])
         self.current = ""
         self.current_update_entity = ""
@@ -501,12 +506,35 @@ class CampaignManager:
                 await self._async_save()
                 self._notify()
 
-                await self.hass.services.async_call(
-                    "update",
-                    "install",
-                    {"entity_id": current},
-                    blocking=False,
-                )
+                current_state = self.hass.states.get(current)
+                if current_state is None:
+                    self._add_failed_detail(current, "entité indisponible avant lancement")
+                    self.last_error = "entity_unavailable_before_install"
+                    self.last_processed_entity = current
+                    if self.remaining and self.remaining[0] == current:
+                        self.remaining.pop(0)
+                    self.current = ""
+                    self.current_update_entity = ""
+                    await self._async_post_item_update()
+                    continue
+
+                try:
+                    await self.hass.services.async_call(
+                        "update",
+                        "install",
+                        {"entity_id": current},
+                        blocking=False,
+                    )
+                except Exception as err:
+                    self._add_failed_detail(current, f"update.install failed: {err}")
+                    self.last_error = "update_install_failed"
+                    self.last_processed_entity = current
+                    if self.remaining and self.remaining[0] == current:
+                        self.remaining.pop(0)
+                    self.current = ""
+                    self.current_update_entity = ""
+                    await self._async_post_item_update()
+                    continue
 
                 success = await self._async_wait_until_off(current, timeout_s)
 
@@ -514,8 +542,7 @@ class CampaignManager:
                     if current not in self.done:
                         self.done.append(current)
                 else:
-                    if current not in self.failed:
-                        self.failed.append(current)
+                    self._add_failed_detail(current, f"timeout ({timeout_s}s, update toujours active)")
                     self.last_error = "timeout_or_still_on"
 
                 self.last_processed_entity = current
@@ -726,6 +753,24 @@ class CampaignManager:
             return entity_id
         return self._clean_entity_label(state.attributes.get("friendly_name") or entity_id)
 
+
+    def _add_failed_detail(self, entity_id: str, reason: str) -> None:
+        if entity_id and entity_id not in self.failed:
+            self.failed.append(entity_id)
+
+        detail = {
+            "entity_id": entity_id,
+            "entity_label": self._entity_label(entity_id),
+            "reason": reason,
+        }
+
+        for idx, item in enumerate(self.failed_details):
+            if item.get("entity_id") == entity_id:
+                self.failed_details[idx] = detail
+                break
+        else:
+            self.failed_details.append(detail)
+
     def _build_summary_message(self, stopped: bool = False) -> str:
         ok = len(self.done)
         ko = len(self.failed)
@@ -765,7 +810,13 @@ class CampaignManager:
         if self.last_error:
             lines.extend(["", f"Dernière erreur : {self.last_error}"])
 
-        if self.failed:
+        if self.failed_details:
+            lines.extend(["", "Échecs détaillés :"])
+            for item in self.failed_details:
+                name = item.get("entity_label") or self._entity_label(item.get("entity_id", ""))
+                reason = item.get("reason") or "raison inconnue"
+                lines.append(f"- {name} : {reason}")
+        elif self.failed:
             lines.extend(["", "Échecs :"])
             for entity_id in self.failed:
                 lines.append(f"- {self._entity_label(entity_id)}")
@@ -797,6 +848,7 @@ class CampaignManager:
                 "avg_duration_s": self.avg_duration_s,
                 "throttle_enabled": self.throttle_enabled,
                 "failed_entities": list(self.failed),
+                "failed_details": list(self.failed_details),
                 "last_processed_entity": self.last_processed_entity,
                 "last_report": message,
             },
@@ -819,6 +871,7 @@ class CampaignManager:
         self.remaining = []
         self.done = []
         self.failed = []
+        self.failed_details = []
         self.skipped = []
         self.current = ""
         self.current_update_entity = ""
