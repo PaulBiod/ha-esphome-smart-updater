@@ -80,7 +80,7 @@ class CampaignManager:
         self.last_error = ""
         self.last_processed_entity = ""
 
-        self.last_report = None
+        self.last_report: str | None = None
         self.last_report_ts = 0
 
         self.pending_updates_count = 0
@@ -136,11 +136,6 @@ class CampaignManager:
         return list(self._pending_update_entities)
 
     def campaign_attributes(self) -> dict:
-        report_available = bool(self.last_report)
-        throttle_enabled = bool(self.entry.options.get(CONF_THROTTLE, False))
-        pause_requested = bool(self.pause_requested)
-        stop_requested = bool(self.stop_requested)
-
         return {
             "queue": list(self.queue),
             "remaining": list(self.remaining),
@@ -160,21 +155,25 @@ class CampaignManager:
             "cpu": self.cpu,
             "temp": self.temp,
             "load_1m": self.load_1m,
-            "pause_requested": pause_requested,
-            "pause_requested_str": "true" if pause_requested else "false",
-            "stop_requested": stop_requested,
-            "stop_requested_str": "true" if stop_requested else "false",
+            "pause_requested": self.pause_requested,
+            "stop_requested": self.stop_requested,
             "waiting_ha_started": self.waiting_ha_started,
             "resume_at_ts": self.resume_at_ts,
             "last_error": self.last_error,
             "last_processed_entity": self.last_processed_entity,
             "last_report": self.last_report,
             "last_report_ts": self.last_report_ts,
-            "report_available": report_available,
-            "report_available_str": "true" if report_available else "false",
-            "throttle_enabled": throttle_enabled,
-            "throttle_enabled_str": "true" if throttle_enabled else "false",
+            "report_available": self.report_available,
+            "throttle_enabled": self.throttle_enabled,
         }
+
+    @property
+    def report_available(self) -> bool:
+        return bool(self.last_report)
+
+    @property
+    def throttle_enabled(self) -> bool:
+        return bool(self.entry.options.get(CONF_THROTTLE, False))
 
     async def async_start(self) -> None:
         await self._async_refresh_pending_updates()
@@ -590,11 +589,8 @@ class CampaignManager:
         state = self.hass.states.get(entity_id)
         return state is None or state.state == "off"
 
-    def _throttle_enabled(self) -> bool:
-        return bool(self.entry.options.get(CONF_THROTTLE, False))
-
     def _read_metric(self, metric: str) -> float | None:
-        if not self._throttle_enabled():
+        if not self.throttle_enabled:
             return None
 
         if metric == "cpu":
@@ -653,7 +649,7 @@ class CampaignManager:
         min_delay = int(self.entry.options.get(CONF_DELAY_MIN, DEFAULT_DELAY_MIN) or DEFAULT_DELAY_MIN)
         max_delay = int(self.entry.options.get(CONF_DELAY_MAX, DEFAULT_DELAY_MAX) or DEFAULT_DELAY_MAX)
 
-        if not self._throttle_enabled():
+        if not self.throttle_enabled:
             self.cpu = None
             self.temp = None
             self.load_1m = None
@@ -716,7 +712,7 @@ class CampaignManager:
         sk = len(self.skipped)
         remaining = len(self.remaining)
         total = self.total or (ok + ko + sk + remaining)
-        throttle = "ON" if self._throttle_enabled() else "OFF"
+        throttle = "ON" if self.throttle_enabled else "OFF"
         duration = self._format_duration(self.duration_s)
         avg = self._format_duration(self.avg_duration_s) if self.avg_duration_s else "0s"
         last_device = self._entity_label(self.last_processed_entity)
@@ -754,16 +750,20 @@ class CampaignManager:
             for entity_id in self.failed:
                 lines.append(f"- {self._entity_label(entity_id)}")
 
-        return "\n".join(lines)
+        return "
+".join(lines)
 
     async def _finish_campaign(self, stopped: bool = False) -> None:
         result = "stopped" if stopped else ("error" if self.failed else "success")
+        self.end_ts = int(time.time())
+        if self.start_ts:
+            self.duration_s = max(0, self.end_ts - self.start_ts)
         message = self._build_summary_message(stopped=stopped)
 
         await self._send_persistent_notification("ESPHome Smart Updater", message)
 
         self.last_report = message
-        self.last_report_ts = int(time.time())
+        self.last_report_ts = self.end_ts
 
         self.hass.bus.async_fire(
             EVENT_CAMPAIGN_FINISHED,
@@ -776,7 +776,7 @@ class CampaignManager:
                 "remaining": len(self.remaining),
                 "duration_s": self.duration_s,
                 "avg_duration_s": self.avg_duration_s,
-                "throttle_enabled": self._throttle_enabled(),
+                "throttle_enabled": self.throttle_enabled,
                 "failed_entities": list(self.failed),
                 "last_processed_entity": self.last_processed_entity,
                 "last_report": message,
@@ -790,7 +790,6 @@ class CampaignManager:
         self.stop_requested = False
         self.waiting_ha_started = False
         self.resume_at_ts = 0
-        self.end_ts = int(time.time())
         self.index = 0
         self.eta_s = 0
 
