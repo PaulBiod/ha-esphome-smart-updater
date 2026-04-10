@@ -34,6 +34,7 @@ from .const import (
 )
 
 _LOGGER = logging.getLogger(__name__)
+_THROTTLE_RECHECK_INTERVAL_S = 2
 
 
 class CampaignManager:
@@ -540,11 +541,7 @@ class CampaignManager:
                     return
 
                 if self.remaining:
-                    delay = self._compute_dynamic_delay()
-                    self.delay_s = delay
-                    await self._async_save()
-                    self._notify()
-                    await asyncio.sleep(delay)
+                    await self._async_wait_between_items()
 
             await self._finish_campaign()
             await self._async_save()
@@ -577,6 +574,26 @@ class CampaignManager:
 
         await self._async_save()
         self._notify()
+
+    async def _async_wait_between_items(self) -> None:
+        elapsed_s = 0.0
+
+        while self.state == "running" and self.remaining:
+            if self.stop_requested or self.pause_requested:
+                return
+
+            target_delay_s = float(self._compute_dynamic_delay())
+            self.delay_s = int(round(target_delay_s))
+            await self._async_save()
+            self._notify()
+
+            remaining_wait_s = target_delay_s - elapsed_s
+            if remaining_wait_s <= 0:
+                return
+
+            sleep_s = min(_THROTTLE_RECHECK_INTERVAL_S, remaining_wait_s)
+            await asyncio.sleep(sleep_s)
+            elapsed_s += sleep_s
 
     async def _async_wait_until_off(self, entity_id: str, timeout_s: int) -> bool:
         deadline = time.time() + timeout_s
@@ -791,6 +808,7 @@ class CampaignManager:
         self.resume_at_ts = 0
         self.index = 0
         self.eta_s = 0
+        self.delay_s = 0
 
     def _reset_runtime_state(self) -> None:
         self.state = "idle"
