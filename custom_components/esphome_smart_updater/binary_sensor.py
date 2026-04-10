@@ -1,0 +1,86 @@
+from __future__ import annotations
+
+from homeassistant.components.binary_sensor import BinarySensorEntity
+from homeassistant.config_entries import ConfigEntry
+from homeassistant.core import HomeAssistant
+from homeassistant.helpers.entity_platform import AddEntitiesCallback
+
+from .const import (
+    BINARY_SENSOR_PAUSE_REQUESTED_UNIQUE_ID,
+    BINARY_SENSOR_REPORT_AVAILABLE_UNIQUE_ID,
+    BINARY_SENSOR_STOP_REQUESTED_UNIQUE_ID,
+    BINARY_SENSOR_THROTTLE_ENABLED_UNIQUE_ID,
+    DOMAIN,
+)
+
+
+async def async_setup_entry(
+    hass: HomeAssistant,
+    entry: ConfigEntry,
+    async_add_entities: AddEntitiesCallback,
+) -> None:
+    manager = hass.data[DOMAIN][entry.entry_id]
+    async_add_entities(
+        [
+            ESUReportAvailableBinarySensor(manager),
+            ESUThrottleEnabledBinarySensor(manager),
+            ESUPauseRequestedBinarySensor(manager),
+            ESUStopRequestedBinarySensor(manager),
+        ]
+    )
+
+
+class _BaseESUBinarySensor(BinarySensorEntity):
+    _attr_should_poll = False
+
+    def __init__(self, manager) -> None:
+        self.manager = manager
+        self._remove_listener = None
+
+    async def async_added_to_hass(self) -> None:
+        self._remove_listener = self.manager.add_listener(self.async_write_ha_state)
+
+    async def async_will_remove_from_hass(self) -> None:
+        if self._remove_listener is not None:
+            self._remove_listener()
+            self._remove_listener = None
+
+
+class ESUReportAvailableBinarySensor(_BaseESUBinarySensor):
+    _attr_name = "ESPHome Smart Updater Report Available"
+    _attr_unique_id = BINARY_SENSOR_REPORT_AVAILABLE_UNIQUE_ID
+    _attr_icon = "mdi:file-document-check"
+
+    @property
+    def is_on(self):
+        return self.manager.report_available
+
+
+class ESUThrottleEnabledBinarySensor(_BaseESUBinarySensor):
+    _attr_name = "ESPHome Smart Updater Throttle Enabled"
+    _attr_unique_id = BINARY_SENSOR_THROTTLE_ENABLED_UNIQUE_ID
+    _attr_icon = "mdi:speedometer"
+
+    @property
+    def is_on(self):
+        return self.manager.throttle_enabled
+
+
+class ESUPauseRequestedBinarySensor(_BaseESUBinarySensor):
+    _attr_name = "ESPHome Smart Updater Pause Requested"
+    _attr_unique_id = BINARY_SENSOR_PAUSE_REQUESTED_UNIQUE_ID
+    _attr_icon = "mdi:pause-circle"
+
+    @property
+    def is_on(self):
+        return self.manager.pause_requested
+
+
+class ESUStopRequestedBinarySensor(_BaseESUBinarySensor):
+    _attr_name = "ESPHome Smart Updater Stop Requested"
+    _attr_unique_id = BINARY_SENSOR_STOP_REQUESTED_UNIQUE_ID
+    _attr_icon = "mdi:stop-circle"
+
+    @property
+    def is_on(self):
+        return self.manager.stop_requested
