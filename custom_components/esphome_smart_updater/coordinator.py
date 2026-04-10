@@ -69,9 +69,6 @@ class CampaignManager:
         self.avg_duration_s = 0
         self.eta_s = 0
         self.delay_s = 0
-        self.item_duration_samples_s: list[int] = []
-        self._current_item_started_ts = 0
-        self._wait_deadline_ts = 0
 
         self.cpu = None
         self.temp = None
@@ -156,7 +153,6 @@ class CampaignManager:
             "avg_duration_s": self.avg_duration_s,
             "eta_s": self.eta_s,
             "delay_s": self.delay_s,
-            "item_duration_samples_s": list(self.item_duration_samples_s),
             "cpu": self.cpu,
             "temp": self.temp,
             "load_1m": self.load_1m,
@@ -213,9 +209,6 @@ class CampaignManager:
         self.delay_s = int(
             self.entry.options.get(CONF_DELAY_MIN, DEFAULT_DELAY_MIN) or DEFAULT_DELAY_MIN
         )
-        self.item_duration_samples_s = []
-        self._current_item_started_ts = 0
-        self._wait_deadline_ts = 0
         self.pause_requested = False
         self.stop_requested = False
         self.waiting_ha_started = False
@@ -295,9 +288,6 @@ class CampaignManager:
         self.avg_duration_s = 0
         self.eta_s = 0
         self.delay_s = 0
-        self.item_duration_samples_s = []
-        self._current_item_started_ts = 0
-        self._wait_deadline_ts = 0
         self.cpu = None
         self.temp = None
         self.load_1m = None
@@ -392,11 +382,6 @@ class CampaignManager:
         self.duration_s = int(data.get("duration_s", 0) or 0)
         self.avg_duration_s = float(data.get("avg_duration_s", 0) or 0)
         self.eta_s = int(data.get("eta_s", 0) or 0)
-        self.item_duration_samples_s = [
-            int(v) for v in data.get("item_duration_samples_s", []) if isinstance(v, (int, float))
-        ][-10:]
-        self._current_item_started_ts = 0
-        self._wait_deadline_ts = 0
         self.delay_s = int(
             data.get(
                 "delay_s",
@@ -459,89 +444,13 @@ class CampaignManager:
             self.total,
         )
 
-        self._refresh_duration_stats()
-        self._update_eta()
-
-    def _refresh_duration_stats(self) -> None:
-        self.duration_s = max(0, int(time.time()) - self.start_ts) if self.start_ts else 0
-
-        if self.item_duration_samples_s:
-            self.avg_duration_s = round(
-                sum(self.item_duration_samples_s) / len(self.item_duration_samples_s), 1
-            )
-            return
-
         processed = len(self.done) + len(self.failed) + len(self.skipped)
-        if processed > 0 and self.duration_s > 0:
+        if processed > 0 and self.start_ts:
+            self.duration_s = max(0, int(time.time()) - self.start_ts)
             self.avg_duration_s = round(self.duration_s / processed, 1)
+            self.eta_s = int(len(self.remaining) * self.avg_duration_s)
         else:
-            self.avg_duration_s = 0
-
-    def _record_item_duration(self, started_ts: float | int) -> None:
-        if not started_ts:
-            return
-
-        duration_s = max(1, int(round(time.time() - float(started_ts))))
-        self.item_duration_samples_s.append(duration_s)
-        self.item_duration_samples_s = self.item_duration_samples_s[-10:]
-
-    def _estimate_item_duration_s(self, current_elapsed_s: float = 0.0) -> float:
-        timeout_s = int(self.entry.options.get(CONF_TIMEOUT, DEFAULT_TIMEOUT) or DEFAULT_TIMEOUT)
-        fallback_s = max(15.0, min(float(timeout_s), 120.0))
-
-        if not self.item_duration_samples_s:
-            return max(fallback_s, current_elapsed_s)
-
-        all_avg_s = sum(self.item_duration_samples_s) / len(self.item_duration_samples_s)
-        recent_samples = self.item_duration_samples_s[-3:]
-        recent_avg_s = sum(recent_samples) / len(recent_samples)
-        estimate_s = (all_avg_s * 0.4) + (recent_avg_s * 0.6)
-        return max(estimate_s, current_elapsed_s)
-
-    def _estimate_inter_item_delay_s(self) -> float:
-        if not self.throttle_enabled:
-            return float(
-                int(self.entry.options.get(CONF_DELAY_MIN, DEFAULT_DELAY_MIN) or DEFAULT_DELAY_MIN)
-            )
-
-        computed = float(self._compute_dynamic_delay())
-        current = float(self.delay_s or 0)
-        if current <= 0:
-            return computed
-        return max(current, computed)
-
-    def _update_eta(self) -> None:
-        now = time.time()
-        self._refresh_duration_stats()
-
-        if self.state != "running" or not self.remaining:
             self.eta_s = 0
-            return
-
-        est_item_s = self._estimate_item_duration_s()
-        est_delay_s = self._estimate_inter_item_delay_s()
-
-        if self.current_update_entity:
-            current_elapsed_s = max(0.0, now - float(self._current_item_started_ts or now))
-            current_left_s = max(0.0, self._estimate_item_duration_s(current_elapsed_s) - current_elapsed_s)
-            future_items = max(len(self.remaining) - 1, 0)
-            future_delays = future_items
-            eta_s = current_left_s + (future_items * est_item_s) + (future_delays * est_delay_s)
-            self.eta_s = max(0, int(round(eta_s)))
-            return
-
-        if self._wait_deadline_ts > 0:
-            wait_left_s = max(0.0, float(self._wait_deadline_ts) - now)
-            future_items = len(self.remaining)
-            future_delays = max(future_items - 1, 0)
-            eta_s = wait_left_s + (future_items * est_item_s) + (future_delays * est_delay_s)
-            self.eta_s = max(0, int(round(eta_s)))
-            return
-
-        future_items = len(self.remaining)
-        future_delays = future_items
-        eta_s = (future_items * est_item_s) + (future_delays * est_delay_s)
-        self.eta_s = max(0, int(round(eta_s)))
 
     def _ensure_worker(self) -> None:
         if self._worker_task is not None and not self._worker_task.done():
@@ -580,8 +489,6 @@ class CampaignManager:
 
                 self.current = current
                 self.current_update_entity = current
-                self._current_item_started_ts = time.time()
-                self._wait_deadline_ts = 0
                 self.index = min(
                     len(self.done) + len(self.failed) + len(self.skipped) + 1,
                     self.total,
@@ -611,8 +518,6 @@ class CampaignManager:
                         self.failed.append(current)
                     self.last_error = "timeout_or_still_on"
 
-                self._record_item_duration(self._current_item_started_ts)
-                self._current_item_started_ts = 0
                 self.last_processed_entity = current
 
                 if self.remaining and self.remaining[0] == current:
@@ -649,8 +554,6 @@ class CampaignManager:
             self.state = "paused"
             self.current = ""
             self.current_update_entity = ""
-            self._current_item_started_ts = 0
-            self._wait_deadline_ts = 0
             self.last_error = "worker_crashed"
             await self._async_save()
             self._notify()
@@ -659,41 +562,38 @@ class CampaignManager:
         await self._async_refresh_pending_updates()
         await self._async_reconcile_remaining_with_pending()
 
-        self._refresh_duration_stats()
-        self._update_eta()
+        self.duration_s = max(0, int(time.time()) - self.start_ts) if self.start_ts else 0
+
+        processed = len(self.done) + len(self.failed) + len(self.skipped)
+        if processed > 0:
+            self.avg_duration_s = round(self.duration_s / processed, 1)
+            self.eta_s = int(len(self.remaining) * self.avg_duration_s)
+        else:
+            self.avg_duration_s = 0
+            self.eta_s = 0
 
         await self._async_save()
         self._notify()
 
     async def _async_wait_between_items(self) -> None:
         elapsed_s = 0.0
-        self._current_item_started_ts = 0
 
         while self.state == "running" and self.remaining:
             if self.stop_requested or self.pause_requested:
-                self._wait_deadline_ts = 0
-                self._update_eta()
                 return
 
             target_delay_s = float(self._compute_dynamic_delay())
             self.delay_s = int(round(target_delay_s))
-            remaining_wait_s = target_delay_s - elapsed_s
-            self._wait_deadline_ts = time.time() + max(remaining_wait_s, 0.0)
-            self._update_eta()
             await self._async_save()
             self._notify()
 
+            remaining_wait_s = target_delay_s - elapsed_s
             if remaining_wait_s <= 0:
-                self._wait_deadline_ts = 0
-                self._update_eta()
                 return
 
             sleep_s = min(_THROTTLE_RECHECK_INTERVAL_S, remaining_wait_s)
             await asyncio.sleep(sleep_s)
             elapsed_s += sleep_s
-
-        self._wait_deadline_ts = 0
-        self._update_eta()
 
     async def _async_wait_until_off(self, entity_id: str, timeout_s: int) -> bool:
         deadline = time.time() + timeout_s
@@ -701,8 +601,6 @@ class CampaignManager:
             state = self.hass.states.get(entity_id)
             if state is None or state.state == "off":
                 return True
-            self._update_eta()
-            self._notify()
             await asyncio.sleep(2)
 
         state = self.hass.states.get(entity_id)
@@ -817,13 +715,16 @@ class CampaignManager:
             return f"{m}m{sec:02d}s"
         return f"{sec}s"
 
+    def _clean_entity_label(self, label: str | None) -> str:
+        return (label or "").replace(" micrologiciel", "").replace(" Micrologiciel", "")
+
     def _entity_label(self, entity_id: str) -> str:
         if not entity_id:
             return "-"
         state = self.hass.states.get(entity_id)
         if state is None:
             return entity_id
-        return state.attributes.get("friendly_name") or entity_id
+        return self._clean_entity_label(state.attributes.get("friendly_name") or entity_id)
 
     def _build_summary_message(self, stopped: bool = False) -> str:
         ok = len(self.done)
@@ -904,8 +805,6 @@ class CampaignManager:
         self.state = "idle"
         self.current = ""
         self.current_update_entity = ""
-        self._current_item_started_ts = 0
-        self._wait_deadline_ts = 0
         self.pause_requested = False
         self.stop_requested = False
         self.waiting_ha_started = False
