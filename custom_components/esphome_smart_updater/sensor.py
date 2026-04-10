@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from homeassistant.components.sensor import SensorEntity
+from homeassistant.components.sensor import SensorEntity, SensorStateClass
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import PERCENTAGE
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
@@ -9,6 +10,7 @@ from .const import (
     CAMPAIGN_SENSOR_UNIQUE_ID,
     DOMAIN,
     PENDING_UPDATES_SENSOR_UNIQUE_ID,
+    PROGRESS_SENSOR_UNIQUE_ID,
 )
 
 
@@ -22,6 +24,7 @@ async def async_setup_entry(
         [
             ESPHomeSmartUpdaterCampaignSensor(manager),
             ESPHomeSmartUpdaterPendingUpdatesSensor(manager),
+            ESPHomeSmartUpdaterProgressSensor(manager),
         ]
     )
 
@@ -71,4 +74,37 @@ class ESPHomeSmartUpdaterPendingUpdatesSensor(_BaseESUSensor):
         return {
             "pending_updates": entities,
             "total": len(entities),
+        }
+
+
+class ESPHomeSmartUpdaterProgressSensor(_BaseESUSensor):
+    _attr_name = "ESPHome Smart Updater Progress"
+    _attr_unique_id = PROGRESS_SENSOR_UNIQUE_ID
+    _attr_icon = "mdi:progress-check"
+    _attr_native_unit_of_measurement = PERCENTAGE
+    _attr_state_class = SensorStateClass.MEASUREMENT
+
+    @property
+    def native_value(self):
+        total = int(self.manager.total or 0)
+        done = len(self.manager.done or [])
+        if total <= 0:
+            return 0
+        return round((done / total) * 100)
+
+    @property
+    def extra_state_attributes(self):
+        total = int(self.manager.total or 0)
+        done = len(self.manager.done or [])
+        failed = len(self.manager.failed or [])
+        skipped = len(self.manager.skipped or [])
+        current = self.manager.current_update_entity or ""
+        processed = done + failed + skipped
+        return {
+            "done_count": done,
+            "failed_count": failed,
+            "skipped_count": skipped,
+            "processed_count": processed,
+            "total": total,
+            "current_update_entity": current,
         }
