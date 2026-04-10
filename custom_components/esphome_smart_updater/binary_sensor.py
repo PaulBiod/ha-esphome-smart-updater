@@ -101,10 +101,7 @@ class ESULastDeviceRunningBinarySensor(_BaseESUBinarySensor):
         index = int(self.manager.index or 0)
         state = getattr(self.manager, "state", "idle")
 
-        if state != "running":
-            return False
-
-        if not current:
+        if state != "running" or not current:
             return False
 
         if len(remaining) == 0:
