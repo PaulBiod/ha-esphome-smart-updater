@@ -20,6 +20,11 @@ CONF_RESTORE_RESUME_DELAY = "restore_resume_delay"
 CAMPAIGN_SENSOR_UNIQUE_ID = "esphome_smart_updater_campaign"
 PENDING_UPDATES_SENSOR_UNIQUE_ID = "esphome_smart_updater_pending_updates"
 
+BINARY_SENSOR_REPORT_AVAILABLE_UNIQUE_ID = "esphome_smart_updater_report_available"
+BINARY_SENSOR_THROTTLE_ENABLED_UNIQUE_ID = "esphome_smart_updater_throttle_enabled"
+BINARY_SENSOR_PAUSE_REQUESTED_UNIQUE_ID = "esphome_smart_updater_pause_requested"
+BINARY_SENSOR_STOP_REQUESTED_UNIQUE_ID = "esphome_smart_updater_stop_requested"
+
 BUTTON_START_UNIQUE_ID = "esu_start"
 BUTTON_PAUSE_UNIQUE_ID = "esu_pause"
 BUTTON_RESUME_UNIQUE_ID = "esu_resume"
