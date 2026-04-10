@@ -6,6 +6,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import (
+    BINARY_SENSOR_LAST_DEVICE_RUNNING_UNIQUE_ID,
     BINARY_SENSOR_PAUSE_REQUESTED_UNIQUE_ID,
     BINARY_SENSOR_REPORT_AVAILABLE_UNIQUE_ID,
     BINARY_SENSOR_STOP_REQUESTED_UNIQUE_ID,
@@ -26,6 +27,7 @@ async def async_setup_entry(
             ESUThrottleEnabledBinarySensor(manager),
             ESUPauseRequestedBinarySensor(manager),
             ESUStopRequestedBinarySensor(manager),
+            ESULastDeviceRunningBinarySensor(manager),
         ]
     )
 
@@ -84,3 +86,28 @@ class ESUStopRequestedBinarySensor(_BaseESUBinarySensor):
     @property
     def is_on(self):
         return self.manager.stop_requested
+
+
+class ESULastDeviceRunningBinarySensor(_BaseESUBinarySensor):
+    _attr_name = "ESPHome Smart Updater Last Device Running"
+    _attr_unique_id = BINARY_SENSOR_LAST_DEVICE_RUNNING_UNIQUE_ID
+    _attr_icon = "mdi:playlist-check"
+
+    @property
+    def is_on(self):
+        remaining = self.manager.remaining or []
+        current = self.manager.current_update_entity
+        total = int(self.manager.total or 0)
+        index = int(self.manager.index or 0)
+        state = getattr(self.manager, "state", "idle")
+
+        if state != "running":
+            return False
+
+        if not current:
+            return False
+
+        if len(remaining) == 0:
+            return True
+
+        return total > 0 and index >= total
