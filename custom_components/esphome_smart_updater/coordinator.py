@@ -750,8 +750,7 @@ class CampaignManager:
             for entity_id in self.failed:
                 lines.append(f"- {self._entity_label(entity_id)}")
 
-        return "
-".join(lines)
+        return "\n".join(lines)
 
     async def _finish_campaign(self, stopped: bool = False) -> None:
         result = "stopped" if stopped else ("error" if self.failed else "success")
