@@ -80,7 +80,7 @@ class CampaignManager:
         self.last_error = ""
         self.last_processed_entity = ""
 
-        self.last_report: str | None = None
+        self.last_report = None
         self.last_report_ts = 0
 
         self.pending_updates_count = 0
@@ -136,7 +136,7 @@ class CampaignManager:
         return list(self._pending_update_entities)
 
     def campaign_attributes(self) -> dict:
-        attrs = {
+        return {
             "queue": list(self.queue),
             "remaining": list(self.remaining),
             "done": list(self.done),
@@ -161,15 +161,13 @@ class CampaignManager:
             "resume_at_ts": self.resume_at_ts,
             "last_error": self.last_error,
             "last_processed_entity": self.last_processed_entity,
-            "report_available": self.last_report is not None,
+            "last_report": self.last_report,
+            "last_report_ts": self.last_report_ts,
+            "report_available": bool(self.last_report),
+            "report_available_str": "true" if self.last_report else "false",
             "throttle_enabled": bool(self.entry.options.get(CONF_THROTTLE, False)),
+            "throttle_enabled_str": "true" if self._throttle_enabled() else "false",
         }
-
-        if self.last_report is not None:
-            attrs["last_report"] = self.last_report
-            attrs["last_report_ts"] = self.last_report_ts
-
-        return attrs
 
     async def async_start(self) -> None:
         await self._async_refresh_pending_updates()
@@ -210,7 +208,7 @@ class CampaignManager:
         self.resume_at_ts = 0
         self.last_error = ""
         self.last_processed_entity = ""
-        self.last_report: str | None = None
+        self.last_report = None
         self.last_report_ts = 0
 
         await self._async_save()
@@ -292,7 +290,7 @@ class CampaignManager:
         self.resume_at_ts = 0
         self.last_error = ""
         self.last_processed_entity = ""
-        self.last_report: str | None = None
+        self.last_report = None
         self.last_report_ts = 0
 
         await self._async_save()
@@ -815,7 +813,7 @@ class CampaignManager:
         self.resume_at_ts = 0
         self.last_error = ""
         self.last_processed_entity = ""
-        self.last_report: str | None = None
+        self.last_report = None
         self.last_report_ts = 0
 
     async def _async_save(self) -> None:
