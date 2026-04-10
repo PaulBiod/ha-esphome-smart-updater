@@ -80,6 +80,8 @@ class CampaignManager:
         self.waiting_ha_started = False
         self.resume_at_ts = 0
         self.last_error = ""
+        self.current_error = ""
+        self.recent_errors: list[str] = []
         self.last_processed_entity = ""
 
         self.last_report: str | None = None
@@ -163,6 +165,8 @@ class CampaignManager:
             "waiting_ha_started": self.waiting_ha_started,
             "resume_at_ts": self.resume_at_ts,
             "last_error": self.last_error,
+            "current_error": self.current_error,
+            "recent_errors": list(self.recent_errors),
             "last_processed_entity": self.last_processed_entity,
             "last_report": self.last_report,
             "last_report_ts": self.last_report_ts,
@@ -217,6 +221,8 @@ class CampaignManager:
         self.waiting_ha_started = False
         self.resume_at_ts = 0
         self.last_error = ""
+        self.current_error = ""
+        self.recent_errors = []
         self.last_processed_entity = ""
         self.last_report = None
         self.last_report_ts = 0
@@ -241,6 +247,7 @@ class CampaignManager:
         self.waiting_ha_started = False
         self.resume_at_ts = 0
         self.last_error = ""
+        self.current_error = ""
 
         await self._async_refresh_pending_updates()
         await self._async_reconcile_remaining_with_pending()
@@ -300,6 +307,8 @@ class CampaignManager:
         self.waiting_ha_started = False
         self.resume_at_ts = 0
         self.last_error = ""
+        self.current_error = ""
+        self.recent_errors = []
         self.last_processed_entity = ""
         self.last_report = None
         self.last_report_ts = 0
@@ -403,6 +412,8 @@ class CampaignManager:
         self.waiting_ha_started = bool(data.get("waiting_ha_started", False))
         self.resume_at_ts = int(data.get("resume_at_ts", 0) or 0)
         self.last_error = data.get("last_error", "")
+        self.current_error = data.get("current_error", "")
+        self.recent_errors = data.get("recent_errors", [])
         self.last_processed_entity = data.get("last_processed_entity", "")
         self.last_report = data.get("last_report")
         self.last_report_ts = int(data.get("last_report_ts", 0) or 0)
@@ -539,6 +550,7 @@ class CampaignManager:
                 success = await self._async_wait_until_off(current, timeout_s)
 
                 if success:
+                    self.current_error = ""
                     if current not in self.done:
                         self.done.append(current)
                 else:
@@ -582,6 +594,8 @@ class CampaignManager:
             self.current = ""
             self.current_update_entity = ""
             self.last_error = "worker_crashed"
+            self.current_error = "worker crashed"
+            self.recent_errors = (self.recent_errors + [self.current_error])[-3:]
             await self._async_save()
             self._notify()
 
@@ -758,6 +772,10 @@ class CampaignManager:
         if entity_id and entity_id not in self.failed:
             self.failed.append(entity_id)
 
+        label = self._entity_label(entity_id)
+        self.current_error = f"{label} : {reason}" if label else reason
+        self.recent_errors = (self.recent_errors + [self.current_error])[-3:]
+
         detail = {
             "entity_id": entity_id,
             "entity_label": self._entity_label(entity_id),
@@ -891,6 +909,8 @@ class CampaignManager:
         self.waiting_ha_started = False
         self.resume_at_ts = 0
         self.last_error = ""
+        self.current_error = ""
+        self.recent_errors = []
         self.last_processed_entity = ""
         self.last_report = None
         self.last_report_ts = 0
