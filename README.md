@@ -199,14 +199,495 @@ automation:
 
 ---
 
+
 ## 📊 Lovelace Card
 
 The dashboard card is **not added automatically**.
 
-You must:
+Once the integration is installed, you can add it manually:
 
-* Add it manually
-* Paste the provided YAML card
+1. Go to your Home Assistant dashboard  
+2. Click **Edit dashboard**  
+3. Click **+ Add card**  
+4. Select **Manual**  
+5. Paste the following YAML:
+
+```yaml
+type: vertical-stack
+cards:
+  - type: custom:mushroom-title-card
+    title: >
+      {% set t = state_attr('sensor.esphome_smart_updater_campaign','t') or {}
+      %} {{ t.title if t.title is defined else 'ESPHome Smart Updater' }}
+    subtitle: >
+      {% set s = states('sensor.esphome_smart_updater_campaign') %} {% set i =
+      state_attr('sensor.esphome_smart_updater_campaign','index') | int(0) %} {%
+      set t_total = state_attr('sensor.esphome_smart_updater_campaign','total')
+      | int(0) %} {% set n =
+      states('sensor.esphome_smart_updater_pending_updates') | int(0) %} {% set
+      t = state_attr('sensor.esphome_smart_updater_campaign','t') or {} %} {% if
+      s == 'paused' %}
+        ⏸ {{ t.paused if t.paused is defined else 'Paused' }} • {{ i }}/{{ t_total }}
+      {% elif s == 'running' %}
+        ▶ {{ t.running if t.running is defined else 'Running' }} • {{ i }}/{{ t_total }}
+      {% else %}
+        {% if n == 0 %}
+          {{ state_attr('sensor.esphome_smart_updater_campaign','no_update_text') }}
+        {% else %}
+          {{ (t.updates_available if t.updates_available is defined else '{count} update(s) available') | replace('{count}', n|string) }}
+        {% endif %}
+      {% endif %}
+  - type: conditional
+    conditions:
+      - condition: or
+        conditions:
+          - condition: state
+            entity: sensor.esphome_smart_updater_campaign
+            state: running
+          - condition: state
+            entity: sensor.esphome_smart_updater_campaign
+            state: paused
+    card:
+      type: tile
+      entity: sensor.esphome_smart_updater_progress
+      name: Progress
+      hide_state: false
+      vertical: false
+      features_position: bottom
+      features:
+        - type: bar-gauge
+          min: 0
+          max: 100
+  - type: conditional
+    conditions:
+      - condition: state
+        entity: sensor.esphome_smart_updater_campaign
+        state: idle
+      - condition: state
+        entity: binary_sensor.esphome_smart_updater_report_available
+        state: "on"
+    card:
+      type: vertical-stack
+      cards:
+        - type: markdown
+          content: >
+            {% set t = state_attr('sensor.esphome_smart_updater_campaign','t')
+            or {} %} ### 📟 {{ t.report if t.report is defined else 'Last
+            report' }}
+
+            {{ state_attr('sensor.esphome_smart_updater_campaign','last_report')
+            or '' }}
+        - type: custom:mushroom-template-card
+          primary: >
+            {% set t = state_attr('sensor.esphome_smart_updater_campaign','t')
+            or {} %} {{ t.clear_report if t.clear_report is defined else 'Clear
+            report' }}
+          icon: mdi:broom
+          icon_color: red
+          tap_action:
+            action: call-service
+            service: esphome_smart_updater.clear_report
+  - type: conditional
+    conditions:
+      - condition: state
+        entity: sensor.esphome_smart_updater_campaign
+        state: idle
+      - condition: state
+        entity: sensor.esphome_smart_updater_pending_updates
+        state_not: "0"
+      - condition: state
+        entity: sensor.esphome_smart_updater_pending_updates
+        state_not: unknown
+      - condition: state
+        entity: sensor.esphome_smart_updater_pending_updates
+        state_not: unavailable
+    card:
+      type: custom:mushroom-template-card
+      primary: >
+        {% set t = state_attr('sensor.esphome_smart_updater_campaign','t') or {}
+        %} {{ t.start if t.start is defined else 'Start' }}
+      secondary: >
+        {{ (t.updates_available if t.updates_available is defined else '{count}
+        update(s) available') | replace('{count}',
+        (states('sensor.esphome_smart_updater_pending_updates') |
+        int(0))|string) }}
+      icon: mdi:play
+      icon_color: green
+      tap_action:
+        action: call-service
+        service: esphome_smart_updater.start_campaign
+  - type: conditional
+    conditions:
+      - condition: or
+        conditions:
+          - condition: state
+            entity: sensor.esphome_smart_updater_campaign
+            state: running
+          - condition: state
+            entity: sensor.esphome_smart_updater_campaign
+            state: paused
+    card:
+      type: vertical-stack
+      cards:
+        - type: custom:mushroom-template-card
+          primary: >
+            {% set t = state_attr('sensor.esphome_smart_updater_campaign','t')
+            or {} %} {{ t.current_device if t.current_device is defined else
+            'Current device' }}
+          secondary: >
+            {% set e =
+            state_attr('sensor.esphome_smart_updater_campaign','current_update_entity')
+            %} {% set t =
+            state_attr('sensor.esphome_smart_updater_campaign','t') or {} %} {%
+            if e %}
+              {% set name = state_attr(e,'friendly_name') | replace(' micrologiciel','') | replace(' Micrologiciel','') %}
+              {% set inst = state_attr(e,'installed_version') %}
+              {% set latest = state_attr(e,'latest_version') %}
+              {% set prog = state_attr(e,'in_progress') %}
+              {{ name }}
+              {% if inst and latest %}
+              {{ inst }} → {{ latest }}
+              {% endif %}
+              {% if prog %}
+              {{ t.running_label if t.running_label is defined else 'Running' }}
+              {% endif %}
+            {% else %}
+              -
+            {% endif %}
+          multiline_secondary: true
+          icon: mdi:chip
+        - type: grid
+          columns: 3
+          square: false
+          cards:
+            - type: custom:mushroom-template-card
+              primary: >
+                {% set t =
+                state_attr('sensor.esphome_smart_updater_campaign','t') or {} %}
+                {{ t.success if t.success is defined else 'Success' }}
+              secondary: >
+                {{ (state_attr('sensor.esphome_smart_updater_campaign','done')
+                or []) | count }}
+              icon: mdi:check
+            - type: custom:mushroom-template-card
+              primary: >
+                {% set t =
+                state_attr('sensor.esphome_smart_updater_campaign','t') or {} %}
+                {{ t.failed if t.failed is defined else 'Failed' }}
+              secondary: >
+                {{ (state_attr('sensor.esphome_smart_updater_campaign','failed')
+                or []) | count }}
+              icon: mdi:alert
+            - type: custom:mushroom-template-card
+              primary: >
+                {% set t =
+                state_attr('sensor.esphome_smart_updater_campaign','t') or {} %}
+                {{ t.skipped if t.skipped is defined else 'Skipped' }}
+              secondary: >
+                {{
+                (state_attr('sensor.esphome_smart_updater_campaign','skipped')
+                or []) | count }}
+              icon: mdi:skip-next
+        - type: grid
+          columns: 2
+          square: false
+          cards:
+            - type: custom:mushroom-template-card
+              primary: >
+                {% set t =
+                state_attr('sensor.esphome_smart_updater_campaign','t') or {} %}
+                {{ t.eta if t.eta is defined else 'ETA' }}
+              secondary: >
+                {% set s =
+                state_attr('sensor.esphome_smart_updater_campaign','eta_s') |
+                int(0) %} {{ '%02d:%02d' | format(s//60, s%60) }}
+              icon: mdi:timer
+            - type: custom:mushroom-template-card
+              primary: >
+                {% set t =
+                state_attr('sensor.esphome_smart_updater_campaign','t') or {} %}
+                {{ t.delay if t.delay is defined else 'Dynamic delay' }}
+              secondary: >
+                {{ state_attr('sensor.esphome_smart_updater_campaign','delay_s')
+                | int(0) }} s
+              icon: mdi:timer-sand
+        - type: conditional
+          conditions:
+            - condition: state
+              entity: binary_sensor.esphome_smart_updater_current_error_visible
+              state: "on"
+          card:
+            type: custom:mushroom-template-card
+            primary: >
+              {% set t = state_attr('sensor.esphome_smart_updater_campaign','t')
+              or {} %} {% set lvl =
+              state_attr('sensor.esphome_smart_updater_campaign','current_error_level')
+              %} {% if lvl == 'critical' %}
+                {{ t.error_critical if t.error_critical is defined else 'Critical error' }}
+              {% else %}
+                {{ t.error_current if t.error_current is defined else 'Current error' }}
+              {% endif %}
+            secondary: >
+              {% set err =
+              state_attr('sensor.esphome_smart_updater_campaign','current_error')
+              | default('', true) | trim %} {% set rec =
+              state_attr('sensor.esphome_smart_updater_campaign','recent_errors')
+              or [] %} {% set rec = rec | select('string') | map('trim') |
+              reject('equalto','') | list %} {% if err %}
+                {{ err }}{% if rec | count > 0 %} --- {% for e in rec %} • {{ e }}{% endfor %}{% endif %}
+              {% elif rec | count > 0 %}
+                {% for e in rec %}• {{ e }}{% if not loop.last %} {% endif %}{% endfor %}
+              {% endif %}
+            multiline_secondary: true
+            icon: >
+              {% if
+              state_attr('sensor.esphome_smart_updater_campaign','current_error_level')
+              == 'critical' %}
+                mdi:alert-circle
+              {% else %}
+                mdi:alert-outline
+              {% endif %}
+            icon_color: >
+              {% if
+              state_attr('sensor.esphome_smart_updater_campaign','current_error_level')
+              == 'critical' %}
+                red
+              {% else %}
+                orange
+              {% endif %}
+        - type: conditional
+          conditions:
+            - condition: state
+              entity: binary_sensor.esphome_smart_updater_throttle_enabled
+              state: "on"
+          card:
+            type: vertical-stack
+            cards:
+              - type: custom:mushroom-title-card
+                title: >
+                  {% set t =
+                  state_attr('sensor.esphome_smart_updater_campaign','t') or {}
+                  %} {{ t.server_load if t.server_load is defined else 'Server
+                  load' }}
+              - type: grid
+                columns: 3
+                square: false
+                cards:
+                  - type: custom:mushroom-template-card
+                    primary: >
+                      {% set t =
+                      state_attr('sensor.esphome_smart_updater_campaign','t') or
+                      {} %} {{ t.cpu if t.cpu is defined else 'CPU' }}
+                    secondary: "{{ states('sensor.processor_use') }} %"
+                    icon: mdi:cpu-64-bit
+                  - type: custom:mushroom-template-card
+                    primary: >
+                      {% set t =
+                      state_attr('sensor.esphome_smart_updater_campaign','t') or
+                      {} %} {{ t.cpu_temp if t.cpu_temp is defined else 'CPU
+                      Temp' }}
+                    secondary: "{{ states('sensor.processor_temperature') }} °C"
+                    icon: mdi:thermometer
+                  - type: custom:mushroom-template-card
+                    primary: >
+                      {% set t =
+                      state_attr('sensor.esphome_smart_updater_campaign','t') or
+                      {} %} {{ t.load_1m if t.load_1m is defined else 'Load 1m'
+                      }}
+                    secondary: "{{ states('sensor.load_1m') }}"
+                    icon: mdi:gauge
+        - type: conditional
+          conditions:
+            - condition: state
+              entity: binary_sensor.esphome_smart_updater_pause_info_visible
+              state: "on"
+          card:
+            type: markdown
+            content: >
+              {% set t = state_attr('sensor.esphome_smart_updater_campaign','t')
+              or {} %} {% set waiting =
+              state_attr('sensor.esphome_smart_updater_campaign','waiting_ha_started')
+              %} {% set resume_at =
+              state_attr('sensor.esphome_smart_updater_campaign','resume_at_ts')
+              | int(0) %} {% set now_ts = as_timestamp(now()) | int(0) %} {% set
+              left = [resume_at - now_ts, 0] | max %} {% if waiting %}
+                🔄 {{ t.waiting_ha if t.waiting_ha is defined else 'Waiting for Home Assistant startup' }}
+              {% elif left > 0 %}
+                🔄 {{ (t.resume_in if t.resume_in is defined else 'Resuming in {time}') | replace('{time}', '%02d:%02d' | format(left // 60, left % 60)) }}
+              {% endif %}
+        - type: conditional
+          conditions:
+            - condition: state
+              entity: sensor.esphome_smart_updater_campaign
+              state: running
+            - condition: state
+              entity: binary_sensor.esphome_smart_updater_stop_requested
+              state: "on"
+          card:
+            type: custom:mushroom-template-card
+            primary: >
+              {% set t = state_attr('sensor.esphome_smart_updater_campaign','t')
+              or {} %} {{ t.stop_requested if t.stop_requested is defined else
+              'Stop requested' }}
+            secondary: >
+              {% set t = state_attr('sensor.esphome_smart_updater_campaign','t')
+              or {} %} {{ t.stop_wait if t.stop_wait is defined else 'The
+              current device finishes flashing before stopping' }}
+            icon: mdi:stop-circle-outline
+            icon_color: red
+            tap_action:
+              action: none
+        - type: conditional
+          conditions:
+            - condition: state
+              entity: sensor.esphome_smart_updater_campaign
+              state: running
+            - condition: state
+              entity: binary_sensor.esphome_smart_updater_stop_requested
+              state: "off"
+            - condition: state
+              entity: binary_sensor.esphome_smart_updater_pause_requested
+              state: "on"
+          card:
+            type: custom:mushroom-template-card
+            primary: >
+              {% set t = state_attr('sensor.esphome_smart_updater_campaign','t')
+              or {} %} {{ t.pause_requested if t.pause_requested is defined else
+              'Pause requested' }}
+            secondary: >
+              {% set t = state_attr('sensor.esphome_smart_updater_campaign','t')
+              or {} %} {{ t.pause_wait if t.pause_wait is defined else 'The
+              current device finishes flashing before pausing' }}
+            icon: mdi:pause-circle-outline
+            icon_color: orange
+            tap_action:
+              action: none
+        - type: conditional
+          conditions:
+            - condition: state
+              entity: sensor.esphome_smart_updater_campaign
+              state: running
+            - condition: state
+              entity: binary_sensor.esphome_smart_updater_stop_requested
+              state: "off"
+            - condition: state
+              entity: binary_sensor.esphome_smart_updater_pause_requested
+              state: "off"
+            - condition: state
+              entity: binary_sensor.esphome_smart_updater_last_device_running
+              state: "off"
+          card:
+            type: horizontal-stack
+            cards:
+              - type: custom:mushroom-template-card
+                primary: >
+                  {% set t =
+                  state_attr('sensor.esphome_smart_updater_campaign','t') or {}
+                  %} {{ t.pause if t.pause is defined else 'Pause' }}
+                icon: mdi:pause
+                icon_color: orange
+                tap_action:
+                  action: call-service
+                  service: esphome_smart_updater.pause_campaign
+              - type: custom:mushroom-template-card
+                primary: >
+                  {% set t =
+                  state_attr('sensor.esphome_smart_updater_campaign','t') or {}
+                  %} {{ t.stop if t.stop is defined else 'Stop' }}
+                icon: mdi:stop
+                icon_color: red
+                tap_action:
+                  action: call-service
+                  service: esphome_smart_updater.stop_campaign
+        - type: conditional
+          conditions:
+            - condition: state
+              entity: binary_sensor.esphome_smart_updater_last_device_running
+              state: "on"
+            - condition: state
+              entity: binary_sensor.esphome_smart_updater_stop_requested
+              state: "off"
+            - condition: state
+              entity: binary_sensor.esphome_smart_updater_pause_requested
+              state: "off"
+          card:
+            type: custom:mushroom-template-card
+            primary: >
+              {% set t = state_attr('sensor.esphome_smart_updater_campaign','t')
+              or {} %} {{ t.last_device if t.last_device is defined else 'Last
+              device running' }}
+            secondary: >
+              {% set t = state_attr('sensor.esphome_smart_updater_campaign','t')
+              or {} %} {{ t.last_device_info if t.last_device_info is defined
+              else 'No pause or stop is useful on the last flash' }}
+            icon: mdi:information-outline
+            icon_color: blue
+            tap_action:
+              action: none
+        - type: conditional
+          conditions:
+            - condition: state
+              entity: sensor.esphome_smart_updater_campaign
+              state: paused
+          card:
+            type: horizontal-stack
+            cards:
+              - type: custom:mushroom-template-card
+                primary: >
+                  {% set t =
+                  state_attr('sensor.esphome_smart_updater_campaign','t') or {}
+                  %} {{ t.resume if t.resume is defined else 'Resume' }}
+                icon: mdi:play
+                icon_color: green
+                tap_action:
+                  action: call-service
+                  service: esphome_smart_updater.resume_campaign
+              - type: custom:mushroom-template-card
+                primary: >
+                  {% set t =
+                  state_attr('sensor.esphome_smart_updater_campaign','t') or {}
+                  %} {{ t.stop if t.stop is defined else 'Stop' }}
+                icon: mdi:stop
+                icon_color: red
+                tap_action:
+                  action: call-service
+                  service: esphome_smart_updater.stop_campaign
+        - type: markdown
+          content: >
+            {% set t = state_attr('sensor.esphome_smart_updater_campaign','t')
+            or {} %} ### 📟 {{ t.infos if t.infos is defined else 'Infos' }}
+
+            {% set e =
+            state_attr('sensor.esphome_smart_updater_campaign','current_update_entity')
+            %} {% set r =
+            state_attr('sensor.esphome_smart_updater_campaign','remaining') or
+            [] %}
+
+            **{{ t.current if t.current is defined else 'Current' }} :** {{
+            state_attr(e,'friendly_name') if e else '-' }}
+
+            **{{ t.next_1 if t.next_1 is defined else 'Next 1' }} :** {{
+            state_attr(r[1],'friendly_name') if r|count > 1 else '-' }}
+
+            **{{ t.next_2 if t.next_2 is defined else 'Next 2' }} :** {{
+            state_attr(r[2],'friendly_name') if r|count > 2 else '-' }}
+
+            **{{ t.next_3 if t.next_3 is defined else 'Next 3' }} :** {{
+            state_attr(r[3],'friendly_name') if r|count > 3 else '-' }}
+
+            **{{ t.error if t.error is defined else 'Error' }} :** {{
+            state_attr('sensor.esphome_smart_updater_campaign','last_error') or
+            '-' }}
+
+```
+
+---
+
+### 💡 Notes
+
+* Requires **Mushroom cards** (custom:mushroom-*)
+* Fully dynamic and multi-language
+* No additional helpers required
 
 ---
 
