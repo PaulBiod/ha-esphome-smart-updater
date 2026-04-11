@@ -178,6 +178,7 @@ class CampaignManager:
             "report_available": self.report_available,
             "throttle_enabled": self.throttle_enabled,
             "no_update_text": self._get_no_update_text(),
+            "t": self._get_ui_translations(),
         }
 
     @property
@@ -188,29 +189,87 @@ class CampaignManager:
     def throttle_enabled(self) -> bool:
         return bool(self.entry.options.get(CONF_THROTTLE, False))
 
-    def _load_translation_text(self, language: str, key: str) -> str | None:
+    def _get_language_candidates(self) -> list[str]:
+        language = self.hass.config.language or "en"
+        candidates = [language]
+        if "-" in language:
+            candidates.append(language.split("-", 1)[0])
+        if "en" not in candidates:
+            candidates.append("en")
+        return candidates
+
+    def _load_translation_file(self, language: str) -> dict:
         translations_dir = Path(__file__).parent / "translations"
-        candidates = [language, language.split("-", 1)[0], "en"]
+        path = translations_dir / f"{language}.json"
+        if not path.exists():
+            return {}
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+            return data if isinstance(data, dict) else {}
+        except Exception:
+            _LOGGER.exception("Unable to read translation file %s", path)
+            return {}
 
-        for candidate in candidates:
-            path = translations_dir / f"{candidate}.json"
-            if not path.exists():
-                continue
-            try:
-                data = json.loads(path.read_text(encoding="utf-8"))
-            except Exception:
-                _LOGGER.exception("Unable to read translation file %s", path)
-                continue
-
-            value = data.get("ui", {}).get(key)
+    def _load_translation_text(self, key_path: str) -> str | None:
+        parts = key_path.split(".")
+        for candidate in self._get_language_candidates():
+            data = self._load_translation_file(candidate)
+            value = data
+            for part in parts:
+                if not isinstance(value, dict):
+                    value = None
+                    break
+                value = value.get(part)
             if isinstance(value, str) and value:
                 return value
-
         return None
 
+    def _tr(self, key_path: str, default: str, **kwargs) -> str:
+        text = self._load_translation_text(key_path) or default
+        if kwargs:
+            try:
+                return text.format(**kwargs)
+            except Exception:
+                return text
+        return text
+
+    def _get_ui_translations(self) -> dict[str, str]:
+        return {
+            "current_device": self._tr("ui.current_device", "Current device"),
+            "success": self._tr("ui.success", "Success"),
+            "failed": self._tr("ui.failed", "Failed"),
+            "skipped": self._tr("ui.skipped", "Skipped"),
+            "eta": self._tr("ui.eta", "ETA"),
+            "delay": self._tr("ui.delay", "Dynamic delay"),
+            "server_load": self._tr("ui.server_load", "Server load"),
+            "cpu": self._tr("ui.cpu", "CPU"),
+            "cpu_temp": self._tr("ui.cpu_temp", "CPU Temp"),
+            "load_1m": self._tr("ui.load_1m", "Load 1m"),
+            "start": self._tr("ui.start", "Start"),
+            "pause": self._tr("ui.pause", "Pause"),
+            "resume": self._tr("ui.resume", "Resume"),
+            "stop": self._tr("ui.stop", "Stop"),
+            "clear_report": self._tr("ui.clear_report", "Clear report"),
+            "running": self._tr("ui.running", "Running"),
+            "paused": self._tr("ui.paused", "Paused"),
+            "stop_requested": self._tr("ui.stop_requested", "Stop requested"),
+            "pause_requested": self._tr("ui.pause_requested", "Pause requested"),
+            "last_device": self._tr("ui.last_device", "Last device running"),
+            "report": self._tr("ui.report", "Last report"),
+            "infos": self._tr("ui.infos", "Infos"),
+            "current": self._tr("ui.current", "Current"),
+            "next_1": self._tr("ui.next_1", "Next 1"),
+            "next_2": self._tr("ui.next_2", "Next 2"),
+            "next_3": self._tr("ui.next_3", "Next 3"),
+            "error": self._tr("ui.error", "Error"),
+            "error_current": self._tr("ui.error_current", "Current error"),
+            "error_critical": self._tr("ui.error_critical", "Critical error"),
+            "waiting_ha": self._tr("ui.waiting_ha", "Waiting for Home Assistant startup"),
+            "running_label": self._tr("ui.running_label", "Running"),
+        }
+
     def _get_no_update_text(self) -> str:
-        language = self.hass.config.language or "en"
-        return self._load_translation_text(language, "no_updates") or "✅ All your devices are up to date"
+        return self._tr("ui.no_updates", "✅ All your devices are up to date")
 
     async def async_start(self) -> None:
         await self._async_refresh_pending_updates()
@@ -253,7 +312,7 @@ class CampaignManager:
         self.last_error = ""
         self.current_error = ""
         self.current_error_level = ""
-        self.recent_errors: list[str] = []
+        self.recent_errors = []
         self.last_processed_entity = ""
         self.last_report = None
         self.last_report_ts = 0
@@ -341,7 +400,7 @@ class CampaignManager:
         self.last_error = ""
         self.current_error = ""
         self.current_error_level = ""
-        self.recent_errors: list[str] = []
+        self.recent_errors = []
         self.last_processed_entity = ""
         self.last_report = None
         self.last_report_ts = 0
@@ -553,7 +612,7 @@ class CampaignManager:
 
                 current_state = self.hass.states.get(current)
                 if current_state is None:
-                    self._add_failed_detail(current, "entité indisponible avant lancement")
+                    self._add_failed_detail(current, "entity_unavailable_before_install")
                     self.last_error = "entity_unavailable_before_install"
                     self.last_processed_entity = current
                     if self.remaining and self.remaining[0] == current:
@@ -571,7 +630,7 @@ class CampaignManager:
                         blocking=False,
                     )
                 except Exception as err:
-                    self._add_failed_detail(current, f"update.install failed: {err}")
+                    self._add_failed_detail(current, f"update_install_failed: {err}")
                     self.last_error = "update_install_failed"
                     self.last_processed_entity = current
                     if self.remaining and self.remaining[0] == current:
@@ -589,7 +648,7 @@ class CampaignManager:
                     if current not in self.done:
                         self.done.append(current)
                 else:
-                    self._add_failed_detail(current, f"timeout ({timeout_s}s, update toujours active)")
+                    self._add_failed_detail(current, f"timeout:{timeout_s}")
                     self.last_error = "timeout_or_still_on"
 
                 self.last_processed_entity = current
@@ -629,7 +688,7 @@ class CampaignManager:
             self.current = ""
             self.current_update_entity = ""
             self.last_error = "worker_crashed"
-            self.current_error = "worker crashed"
+            self.current_error = self._tr("errors.worker_crash", "Worker crashed")
             self.current_error_level = "critical"
             self.recent_errors = (self.recent_errors + [self.current_error])[-3:]
             await self._async_save()
@@ -803,26 +862,54 @@ class CampaignManager:
             return entity_id
         return self._clean_entity_label(state.attributes.get("friendly_name") or entity_id)
 
-
     def _error_level_from_reason(self, reason: str) -> str:
         reason_lower = (reason or "").lower()
         if "timeout" in reason_lower:
             return "warning"
         return "critical"
 
+    def _translate_reason(self, reason: str) -> str:
+        raw = (reason or "").strip()
+        reason_lower = raw.lower()
+
+        if raw.startswith("timeout:"):
+            timeout_value = raw.split(":", 1)[1]
+            base = self._tr("errors.timeout", "OTA timeout")
+            return f"{base} ({timeout_value}s)"
+
+        if raw == "entity_unavailable_before_install":
+            return self._tr("errors.offline", "Device offline")
+
+        if raw.startswith("update_install_failed"):
+            suffix = raw.split(":", 1)[1].strip() if ":" in raw else ""
+            base = self._tr("errors.connection", "Connection error")
+            return f"{base}: {suffix}" if suffix else base
+
+        if "timeout" in reason_lower:
+            return self._tr("errors.timeout", "OTA timeout")
+        if "offline" in reason_lower or "indisponible" in reason_lower:
+            return self._tr("errors.offline", "Device offline")
+        if "connection" in reason_lower or "install failed" in reason_lower:
+            return self._tr("errors.connection", "Connection error")
+        if "worker crashed" in reason_lower:
+            return self._tr("errors.worker_crash", "Worker crashed")
+
+        return raw or self._tr("errors.unknown", "Unknown error")
+
     def _add_failed_detail(self, entity_id: str, reason: str) -> None:
         if entity_id and entity_id not in self.failed:
             self.failed.append(entity_id)
 
         label = self._entity_label(entity_id)
-        self.current_error = f"{label} : {reason}" if label else reason
+        translated_reason = self._translate_reason(reason)
+        self.current_error = f"{label} : {translated_reason}" if label else translated_reason
         self.current_error_level = self._error_level_from_reason(reason)
         self.recent_errors = (self.recent_errors + [self.current_error])[-3:]
 
         detail = {
             "entity_id": entity_id,
             "entity_label": label,
-            "reason": reason,
+            "reason": translated_reason,
         }
 
         for idx, item in enumerate(self.failed_details):
@@ -846,39 +933,39 @@ class CampaignManager:
         lines: list[str] = []
 
         if stopped:
-            lines.append("⏹ Campagne arrêtée")
+            lines.append("⏹ " + self._tr("ui.stop_requested", "Stop requested"))
         elif ko > 0:
-            lines.append("❌ Campagne terminée avec erreurs")
+            lines.append("❌ " + self._tr("ui.error_current", "Current error"))
         else:
-            lines.append("✅ Campagne terminée avec succès")
+            lines.append("✅ " + self._tr("report.summary", "✅ {done} success • ❌ {failed} failed • ⏭ {skipped} skipped", done=ok, failed=ko, skipped=sk))
 
         lines.extend(
             [
                 "",
                 f"Total : {total}",
-                f"Réussis : {ok}",
-                f"Échecs : {ko}",
-                f"Skipped : {sk}",
-                f"Restants : {remaining}",
+                self._tr("report.line_done", "Success: {done}", done=ok),
+                self._tr("report.line_failed", "Failed: {failed}", failed=ko),
+                self._tr("report.line_skipped", "Skipped: {skipped}", skipped=sk),
+                f"Remaining : {remaining}",
                 "",
-                f"Durée totale : {duration}",
-                f"Durée moyenne : {avg} / device",
+                f"Duration : {duration}",
+                f"Average : {avg} / device",
                 f"Throttle : {throttle}",
-                f"Dernier device : {last_device}",
+                f"{self._tr('ui.last_device', 'Last device running')} : {last_device}",
             ]
         )
 
         if self.last_error:
-            lines.extend(["", f"Dernière erreur : {self.last_error}"])
+            lines.extend(["", f"{self._tr('ui.error', 'Error')} : {self.last_error}"])
 
         if self.failed_details:
-            lines.extend(["", "Échecs détaillés :"])
+            lines.extend(["", f"{self._tr('ui.failed', 'Failed')} :"])
             for item in self.failed_details:
                 name = item.get("entity_label") or self._entity_label(item.get("entity_id", ""))
-                reason = item.get("reason") or "raison inconnue"
+                reason = item.get("reason") or self._tr("errors.unknown", "Unknown error")
                 lines.append(f"- {name} : {reason}")
         elif self.failed:
-            lines.extend(["", "Échecs :"])
+            lines.extend(["", f"{self._tr('ui.failed', 'Failed')} :"])
             for entity_id in self.failed:
                 lines.append(f"- {self._entity_label(entity_id)}")
 
@@ -956,7 +1043,7 @@ class CampaignManager:
         self.last_error = ""
         self.current_error = ""
         self.current_error_level = ""
-        self.recent_errors: list[str] = []
+        self.recent_errors = []
         self.last_processed_entity = ""
         self.last_report = None
         self.last_report_ts = 0
