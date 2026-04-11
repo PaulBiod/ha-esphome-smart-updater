@@ -2,11 +2,16 @@
 
 > ⚡ Automate and control your ESPHome OTA updates like a pro
 
-![GitHub release](https://img.shields.io/github/v/release/PaulBiod/ha-esphome-smart-updater)
-![HACS](https://img.shields.io/badge/HACS-Custom-orange.svg)
-![Home Assistant](https://img.shields.io/badge/Home%20Assistant-Integration-blue)
+<p align="center">
+  <img src="https://img.shields.io/github/v/release/PaulBiod/ha-esphome-smart-updater?style=for-the-badge" />
+  <img src="https://img.shields.io/badge/HACS-Custom-orange?style=for-the-badge" />
+  <img src="https://img.shields.io/badge/Home%20Assistant-Integration-blue?style=for-the-badge" />
+  <img src="https://img.shields.io/github/license/PaulBiod/ha-esphome-smart-updater?style=for-the-badge" />
+  <img src="https://img.shields.io/github/stars/PaulBiod/ha-esphome-smart-updater?style=for-the-badge" />
+  <img src="https://img.shields.io/github/downloads/PaulBiod/ha-esphome-smart-updater/total?style=for-the-badge" />
+</p>
 
-[![Add to HACS](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=PaulBiod&repository=ha-esphome-smart-updater&category=integration)
+
 
 ---
 
