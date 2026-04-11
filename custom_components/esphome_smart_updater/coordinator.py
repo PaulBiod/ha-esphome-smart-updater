@@ -235,6 +235,9 @@ class CampaignManager:
 
     def _get_ui_translations(self) -> dict[str, str]:
         return {
+            "title": self._tr("ui.title", "ESPHome Smart Updater"),
+            "progress": self._tr("ui.progress", "Progress"),
+            "updates_available": self._tr("ui.updates_available", "{count} update(s) available"),
             "current_device": self._tr("ui.current_device", "Current device"),
             "success": self._tr("ui.success", "Success"),
             "failed": self._tr("ui.failed", "Failed"),
@@ -266,6 +269,9 @@ class CampaignManager:
             "error_critical": self._tr("ui.error_critical", "Critical error"),
             "waiting_ha": self._tr("ui.waiting_ha", "Waiting for Home Assistant startup"),
             "running_label": self._tr("ui.running_label", "Running"),
+            "stop_wait": self._tr("ui.stop_wait", "The current device finishes flashing before stopping"),
+            "pause_wait": self._tr("ui.pause_wait", "The current device finishes flashing before pausing"),
+            "last_device_info": self._tr("ui.last_device_info", "No pause or stop is useful on the last flash"),
         }
 
     def _get_no_update_text(self) -> str:
@@ -942,30 +948,30 @@ class CampaignManager:
         lines.extend(
             [
                 "",
-                f"Total : {total}",
+                self._tr("report.line_total", "Total: {total}", total=total),
                 self._tr("report.line_done", "Success: {done}", done=ok),
                 self._tr("report.line_failed", "Failed: {failed}", failed=ko),
                 self._tr("report.line_skipped", "Skipped: {skipped}", skipped=sk),
-                f"Remaining : {remaining}",
+                self._tr("report.line_remaining", "Remaining: {remaining}", remaining=remaining),
                 "",
-                f"Duration : {duration}",
-                f"Average : {avg} / device",
-                f"Throttle : {throttle}",
+                self._tr("report.line_duration", "Duration: {duration}", duration=duration),
+                self._tr("report.line_average", "Average: {average} / device", average=avg),
+                self._tr("report.line_throttle", "Throttle: {throttle}", throttle=throttle),
                 f"{self._tr('ui.last_device', 'Last device running')} : {last_device}",
             ]
         )
 
         if self.last_error:
-            lines.extend(["", f"{self._tr('ui.error', 'Error')} : {self.last_error}"])
+            lines.extend(["", self._tr("report.line_error", "Error: {error}", error=self.last_error)])
 
         if self.failed_details:
-            lines.extend(["", f"{self._tr('ui.failed', 'Failed')} :"])
+            lines.extend(["", self._tr("report.failed_header", "Failed:")])
             for item in self.failed_details:
                 name = item.get("entity_label") or self._entity_label(item.get("entity_id", ""))
                 reason = item.get("reason") or self._tr("errors.unknown", "Unknown error")
                 lines.append(f"- {name} : {reason}")
         elif self.failed:
-            lines.extend(["", f"{self._tr('ui.failed', 'Failed')} :"])
+            lines.extend(["", self._tr("report.failed_header", "Failed:")])
             for entity_id in self.failed:
                 lines.append(f"- {self._entity_label(entity_id)}")
 
@@ -978,7 +984,10 @@ class CampaignManager:
             self.duration_s = max(0, self.end_ts - self.start_ts)
         message = self._build_summary_message(stopped=stopped)
 
-        await self._send_persistent_notification("ESPHome Smart Updater", message)
+        await self._send_persistent_notification(
+            self._tr("report.notification_title", "ESPHome Smart Updater"),
+            message,
+        )
 
         self.last_report = message
         self.last_report_ts = self.end_ts
