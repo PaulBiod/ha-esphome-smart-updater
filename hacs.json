@@ -1,5 +1,6 @@
 {
   "name": "ESPHome Smart Updater",
   "content_in_root": false,
+  "render_readme": true,
   "domains": ["esphome_smart_updater"]
 }
