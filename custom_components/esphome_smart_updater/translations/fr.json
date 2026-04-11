@@ -30,6 +30,52 @@
     }
   },
   "ui": {
-    "no_updates": "✅ Tous vos appareils ESPHome sont à jour"
+    "no_updates": "✅ Tous vos appareils ESPHome sont à jour",
+    "current_device": "Appareil actuel",
+    "success": "Réussis",
+    "failed": "Échecs",
+    "skipped": "Ignorés",
+    "eta": "ETA",
+    "delay": "Délai dynamique",
+    "server_load": "Charge serveur",
+    "cpu": "CPU",
+    "cpu_temp": "Temp CPU",
+    "load_1m": "Load 1m",
+    "start": "Démarrer",
+    "pause": "Pause",
+    "resume": "Reprendre",
+    "stop": "Stop",
+    "clear_report": "Effacer le rapport",
+    "running": "En cours",
+    "paused": "En pause",
+    "stop_requested": "Stop demandé",
+    "pause_requested": "Pause demandée",
+    "last_device": "Dernier appareil en cours",
+    "report": "Dernier rapport",
+    "infos": "Infos",
+    "current": "Actuel",
+    "next_1": "Suivant 1",
+    "next_2": "Suivant 2",
+    "next_3": "Suivant 3",
+    "error": "Erreur",
+    "error_current": "Erreur en cours",
+    "error_critical": "Erreur critique",
+    "waiting_ha": "Attente du démarrage complet de Home Assistant",
+    "resume_in": "Reprise automatique dans {time}",
+    "running_label": "Running"
+  },
+  "report": {
+    "summary": "✅ {done} réussis • ❌ {failed} échecs • ⏭ {skipped} ignorés",
+    "line_done": "Réussis : {done}",
+    "line_failed": "Échecs : {failed}",
+    "line_skipped": "Ignorés : {skipped}"
+  },
+  "errors": {
+    "timeout": "Timeout OTA",
+    "offline": "Appareil hors ligne",
+    "connection": "Erreur de connexion",
+    "unknown": "Erreur inconnue",
+    "worker_crash": "Worker interrompu",
+    "skipped": "Appareil ignoré"
   }
 }
