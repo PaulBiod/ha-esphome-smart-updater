@@ -1,0 +1,95 @@
+{
+  "config": {
+    "abort": {
+      "single_instance_allowed": "Só é permitida uma instância."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Definições gerais",
+        "description": "Configure o comportamento global das campanhas OTA do ESPHome.",
+        "data": {
+          "timeout": "Tempo limite antes da falha (segundos)",
+          "max_items": "Número máximo de dispositivos por lote",
+          "restore_resume_delay": "Atraso antes de retomar após reiniciar o Home Assistant",
+          "throttle": "Ativar adaptação automática do atraso"
+        }
+      },
+      "throttle": {
+        "title": "Adaptação automática do atraso",
+        "description": "Escolha quais sensores devem ser usados para estimar a carga do servidor e depois defina o atraso mínimo e máximo entre actualizações.",
+        "data": {
+          "cpu_sensor": "Sensor de utilização de CPU (%)",
+          "temp_sensor": "Sensor de temperatura da CPU (°C)",
+          "load_sensor": "Sensor de carga do sistema (carga de 1 min)",
+          "delay_min": "Atraso mínimo entre actualizações (s)",
+          "delay_max": "Atraso máximo entre actualizações (s)"
+        }
+      }
+    }
+  },
+  "ui": {
+    "no_updates": "✅ Todos os seus dispositivos ESPHome estão actualizados",
+    "current_device": "Dispositivo actual",
+    "success": "Sucesso",
+    "failed": "Falhas",
+    "skipped": "Ignorados",
+    "eta": "ETA",
+    "delay": "Atraso dinâmico",
+    "server_load": "Carga do servidor",
+    "cpu": "CPU",
+    "cpu_temp": "Temp. CPU",
+    "load_1m": "Carga 1 min",
+    "start": "Iniciar",
+    "pause": "Pausar",
+    "resume": "Retomar",
+    "stop": "Parar",
+    "clear_report": "Limpar relatório",
+    "running": "Em execução",
+    "paused": "Em pausa",
+    "stop_requested": "Paragem pedida",
+    "pause_requested": "Pausa pedida",
+    "last_device": "Último dispositivo em execução",
+    "report": "Último relatório",
+    "infos": "Informações",
+    "current": "Actual",
+    "next_1": "Seguinte 1",
+    "next_2": "Seguinte 2",
+    "next_3": "Seguinte 3",
+    "error": "Erro",
+    "error_current": "Erro actual",
+    "error_critical": "Erro crítico",
+    "waiting_ha": "A aguardar o arranque completo do Home Assistant",
+    "resume_in": "Retoma automática em {time}",
+    "running_label": "Em execução",
+    "title": "ESPHome Smart Updater",
+    "progress": "Progresso",
+    "updates_available": "{count} actualização(ões) disponível(eis)",
+    "stop_wait": "O dispositivo actual termina o flash antes de parar",
+    "pause_wait": "O dispositivo actual termina o flash antes de pausar",
+    "last_device_info": "Pausar ou parar não é útil no último flash"
+  },
+  "report": {
+    "summary": "✅ {done} sucesso • ❌ {failed} falhas • ⏭ {skipped} ignorados",
+    "line_done": "Sucesso: {done}",
+    "line_failed": "Falhas: {failed}",
+    "line_skipped": "Ignorados: {skipped}",
+    "line_total": "Total: {total}",
+    "line_remaining": "Restantes: {remaining}",
+    "line_duration": "Duração: {duration}",
+    "line_average": "Média: {average} / dispositivo",
+    "line_throttle": "Throttle: {throttle}",
+    "line_error": "Erro: {error}",
+    "failed_header": "Falhas:",
+    "notification_title": "ESPHome Smart Updater"
+  },
+  "errors": {
+    "timeout": "Tempo limite OTA",
+    "offline": "Dispositivo offline",
+    "connection": "Erro de ligação",
+    "unknown": "Erro desconhecido",
+    "worker_crash": "Worker interrompido",
+    "skipped": "Dispositivo ignorado"
+  }
+}

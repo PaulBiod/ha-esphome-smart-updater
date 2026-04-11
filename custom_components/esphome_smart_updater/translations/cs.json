@@ -1,0 +1,95 @@
+{
+  "config": {
+    "abort": {
+      "single_instance_allowed": "Je povolena pouze jedna instance."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Obecná nastavení",
+        "description": "Nakonfigurujte globální chování OTA kampaní ESPHome.",
+        "data": {
+          "timeout": "Časový limit před chybou (sekundy)",
+          "max_items": "Maximální počet zařízení v dávce",
+          "restore_resume_delay": "Zpoždění před pokračováním po restartu Home Assistant",
+          "throttle": "Povolit automatické přizpůsobení zpoždění"
+        }
+      },
+      "throttle": {
+        "title": "Automatické přizpůsobení zpoždění",
+        "description": "Vyberte senzory používané k odhadu zatížení serveru a potom nastavte minimální a maximální zpoždění mezi aktualizacemi.",
+        "data": {
+          "cpu_sensor": "Senzor využití CPU (%)",
+          "temp_sensor": "Senzor teploty CPU (°C)",
+          "load_sensor": "Senzor zatížení systému (zátěž za 1 min)",
+          "delay_min": "Minimální zpoždění mezi aktualizacemi (s)",
+          "delay_max": "Maximální zpoždění mezi aktualizacemi (s)"
+        }
+      }
+    }
+  },
+  "ui": {
+    "no_updates": "✅ Všechna vaše zařízení ESPHome jsou aktuální",
+    "current_device": "Aktuální zařízení",
+    "success": "Úspěšné",
+    "failed": "Neúspěšné",
+    "skipped": "Přeskočené",
+    "eta": "ETA",
+    "delay": "Dynamické zpoždění",
+    "server_load": "Zatížení serveru",
+    "cpu": "CPU",
+    "cpu_temp": "Teplota CPU",
+    "load_1m": "Zátěž 1 min",
+    "start": "Spustit",
+    "pause": "Pozastavit",
+    "resume": "Pokračovat",
+    "stop": "Zastavit",
+    "clear_report": "Vymazat report",
+    "running": "Probíhá",
+    "paused": "Pozastaveno",
+    "stop_requested": "Požadováno zastavení",
+    "pause_requested": "Požadována pauza",
+    "last_device": "Poslední běžící zařízení",
+    "report": "Poslední report",
+    "infos": "Informace",
+    "current": "Aktuální",
+    "next_1": "Další 1",
+    "next_2": "Další 2",
+    "next_3": "Další 3",
+    "error": "Chyba",
+    "error_current": "Aktuální chyba",
+    "error_critical": "Kritická chyba",
+    "waiting_ha": "Čekání na úplné spuštění Home Assistant",
+    "resume_in": "Automatické pokračování za {time}",
+    "running_label": "Probíhá",
+    "title": "ESPHome Smart Updater",
+    "progress": "Průběh",
+    "updates_available": "{count} dostupná aktualizace/aktualizací",
+    "stop_wait": "Aktuální zařízení dokončí flashování před zastavením",
+    "pause_wait": "Aktuální zařízení dokončí flashování před pozastavením",
+    "last_device_info": "Pozastavení ani zastavení nemá při posledním flashování smysl"
+  },
+  "report": {
+    "summary": "✅ {done} úspěšné • ❌ {failed} neúspěšné • ⏭ {skipped} přeskočené",
+    "line_done": "Úspěšné: {done}",
+    "line_failed": "Neúspěšné: {failed}",
+    "line_skipped": "Přeskočené: {skipped}",
+    "line_total": "Celkem: {total}",
+    "line_remaining": "Zbývá: {remaining}",
+    "line_duration": "Doba trvání: {duration}",
+    "line_average": "Průměr: {average} / zařízení",
+    "line_throttle": "Throttle: {throttle}",
+    "line_error": "Chyba: {error}",
+    "failed_header": "Neúspěšné:",
+    "notification_title": "ESPHome Smart Updater"
+  },
+  "errors": {
+    "timeout": "Vypršel čas OTA",
+    "offline": "Zařízení je offline",
+    "connection": "Chyba připojení",
+    "unknown": "Neznámá chyba",
+    "worker_crash": "Worker havaroval",
+    "skipped": "Zařízení přeskočeno"
+  }
+}

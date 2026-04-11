@@ -1,0 +1,95 @@
+{
+  "config": {
+    "abort": {
+      "single_instance_allowed": "Es ist nur eine Instanz erlaubt."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Allgemeine Einstellungen",
+        "description": "Konfiguriere das globale Verhalten der ESPHome-OTA-Kampagnen.",
+        "data": {
+          "timeout": "Timeout vor Fehler (Sekunden)",
+          "max_items": "Maximale Anzahl Geräte pro Stapel",
+          "restore_resume_delay": "Verzögerung vor der Fortsetzung nach einem Home-Assistant-Neustart",
+          "throttle": "Automatische Anpassung der Verzögerung aktivieren"
+        }
+      },
+      "throttle": {
+        "title": "Automatische Anpassung der Verzögerung",
+        "description": "Wähle, welche Sensoren zur Abschätzung der Serverlast verwendet werden sollen, und definiere dann die minimale und maximale Verzögerung zwischen Updates.",
+        "data": {
+          "cpu_sensor": "CPU-Auslastungssensor (%)",
+          "temp_sensor": "CPU-Temperatursensor (°C)",
+          "load_sensor": "Systemlastsensor (1-Minuten-Last)",
+          "delay_min": "Minimale Verzögerung zwischen Updates (s)",
+          "delay_max": "Maximale Verzögerung zwischen Updates (s)"
+        }
+      }
+    }
+  },
+  "ui": {
+    "no_updates": "✅ Alle deine ESPHome-Geräte sind auf dem neuesten Stand",
+    "current_device": "Aktuelles Gerät",
+    "success": "Erfolgreich",
+    "failed": "Fehlgeschlagen",
+    "skipped": "Übersprungen",
+    "eta": "ETA",
+    "delay": "Dynamische Verzögerung",
+    "server_load": "Serverlast",
+    "cpu": "CPU",
+    "cpu_temp": "CPU-Temp.",
+    "load_1m": "Last 1 Min.",
+    "start": "Starten",
+    "pause": "Pausieren",
+    "resume": "Fortsetzen",
+    "stop": "Stoppen",
+    "clear_report": "Bericht löschen",
+    "running": "Läuft",
+    "paused": "Pausiert",
+    "stop_requested": "Stopp angefordert",
+    "pause_requested": "Pause angefordert",
+    "last_device": "Letztes laufendes Gerät",
+    "report": "Letzter Bericht",
+    "infos": "Infos",
+    "current": "Aktuell",
+    "next_1": "Nächstes 1",
+    "next_2": "Nächstes 2",
+    "next_3": "Nächstes 3",
+    "error": "Fehler",
+    "error_current": "Aktueller Fehler",
+    "error_critical": "Kritischer Fehler",
+    "waiting_ha": "Warten auf den vollständigen Start von Home Assistant",
+    "resume_in": "Automatische Fortsetzung in {time}",
+    "running_label": "Läuft",
+    "title": "ESPHome Smart Updater",
+    "progress": "Fortschritt",
+    "updates_available": "{count} Update(s) verfügbar",
+    "stop_wait": "Das aktuelle Gerät beendet das Flashen, bevor gestoppt wird",
+    "pause_wait": "Das aktuelle Gerät beendet das Flashen, bevor pausiert wird",
+    "last_device_info": "Beim letzten Flash sind Pause oder Stopp nicht sinnvoll"
+  },
+  "report": {
+    "summary": "✅ {done} erfolgreich • ❌ {failed} fehlgeschlagen • ⏭ {skipped} übersprungen",
+    "line_done": "Erfolgreich: {done}",
+    "line_failed": "Fehlgeschlagen: {failed}",
+    "line_skipped": "Übersprungen: {skipped}",
+    "line_total": "Gesamt: {total}",
+    "line_remaining": "Verbleibend: {remaining}",
+    "line_duration": "Dauer: {duration}",
+    "line_average": "Durchschnitt: {average} / Gerät",
+    "line_throttle": "Throttle: {throttle}",
+    "line_error": "Fehler: {error}",
+    "failed_header": "Fehlgeschlagen:",
+    "notification_title": "ESPHome Smart Updater"
+  },
+  "errors": {
+    "timeout": "OTA-Zeitüberschreitung",
+    "offline": "Gerät offline",
+    "connection": "Verbindungsfehler",
+    "unknown": "Unbekannter Fehler",
+    "worker_crash": "Worker abgestürzt",
+    "skipped": "Gerät übersprungen"
+  }
+}
