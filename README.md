@@ -150,7 +150,7 @@ After adding the integration:
   - CPU temperature
   - Load 1m
 
-👉 These sensors are available via the [System Monitor integration](https://www.home-assistant.io/integrations/systemmonitor/) (opens in a new tab).
+👉 These sensors are available via the [System Monitor integration](https://www.home-assistant.io/integrations/systemmonitor/) 
 
 ---
 
