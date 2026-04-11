@@ -963,7 +963,7 @@ class CampaignManager:
         elif ko > 0:
             lines.append("❌ " + self._tr("ui.error_current", "Current error"))
         else:
-            lines.append("✅ " + self._tr("report.summary", "✅ {done} success • ❌ {failed} failed • ⏭ {skipped} skipped", done=ok, failed=ko, skipped=sk))
+            lines.append(self._tr("report.summary", "✅ {done} success • ❌ {failed} failed • ⏭ {skipped} skipped", done=ok, failed=ko, skipped=sk))
 
         lines.extend(
             [
