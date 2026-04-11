@@ -108,10 +108,19 @@ Accessible via:
 
 ### 🌍 Multi-language
 
-* 🇫🇷 French
 * 🇬🇧 English
+* 🇫🇷 Français
+* 🇪🇸 Español
+* 🇩🇪 Deutsch
+* 🇮🇹 Italiano
+* 🇵🇹 Português (BR)
+* 🇵🇹 Português (PT)
+* 🇳🇱 Nederlands
+* 🇵🇱 Polski
+* 🇨🇿 Čeština
+* 🇪🇸 Català
 
----
+> The interface automatically adapts to your Home Assistant language.
 
 ## 🛠 Installation
 
