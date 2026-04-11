@@ -190,7 +190,27 @@ class CampaignManager:
         return bool(self.entry.options.get(CONF_THROTTLE, False))
 
     def _get_language_candidates(self) -> list[str]:
-        language = self.hass.config.language or "en"
+        language = None
+
+        try:
+            frontend_storage = self.hass.data.get("frontend_storage")
+            if frontend_storage is not None:
+                language = frontend_storage.get("language")
+        except Exception:
+            language = None
+
+        if not language:
+            try:
+                frontend = self.hass.data.get("frontend")
+                storage = getattr(frontend, "storage", None)
+                if isinstance(storage, dict):
+                    language = storage.get("language")
+            except Exception:
+                language = None
+
+        if not language:
+            language = self.hass.config.language or "en"
+
         candidates = [language]
         if "-" in language:
             candidates.append(language.split("-", 1)[0])
