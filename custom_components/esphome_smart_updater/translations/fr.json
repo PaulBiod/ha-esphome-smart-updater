@@ -62,13 +62,27 @@
     "error_critical": "Erreur critique",
     "waiting_ha": "Attente du démarrage complet de Home Assistant",
     "resume_in": "Reprise automatique dans {time}",
-    "running_label": "Running"
+    "running_label": "Running",
+    "title": "ESPHome Smart Updater",
+    "progress": "Progression",
+    "updates_available": "{count} mise(s) à jour disponible(s)",
+    "stop_wait": "Le device en cours termine son flash avant arrêt",
+    "pause_wait": "Le device en cours termine son flash avant pause",
+    "last_device_info": "Aucun arrêt ni pause utile sur le dernier flash"
   },
   "report": {
     "summary": "✅ {done} réussis • ❌ {failed} échecs • ⏭ {skipped} ignorés",
     "line_done": "Réussis : {done}",
     "line_failed": "Échecs : {failed}",
-    "line_skipped": "Ignorés : {skipped}"
+    "line_skipped": "Ignorés : {skipped}",
+    "line_total": "Total : {total}",
+    "line_remaining": "Restants : {remaining}",
+    "line_duration": "Durée : {duration}",
+    "line_average": "Moyenne : {average} / appareil",
+    "line_throttle": "Throttle : {throttle}",
+    "line_error": "Erreur : {error}",
+    "failed_header": "Échecs :",
+    "notification_title": "ESPHome Smart Updater"
   },
   "errors": {
     "timeout": "Timeout OTA",
