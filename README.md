@@ -26,13 +26,13 @@ No more manual updates one by one.
 
 ## 🎥 Preview
 
-![Preview](images/preview.gif)
+![Preview](https://raw.githubusercontent.com/PaulBiod/ha-esphome-smart-updater/main/images/esphome_preview_pro_slow.gif)
 
 ---
 
 ## 📸 Dashboard
 
-![Dashboard](images/dashboard.png)
+![ESPHome Smart Updater Dashboard](images/dashboard.jpg)
 
 ---
 
