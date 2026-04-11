@@ -210,7 +210,10 @@ Once the integration is installed, you can add it manually:
 2. Click **Edit dashboard**  
 3. Click **+ Add card**  
 4. Select **Manual**  
-5. Paste the following YAML:
+5. Copy the YAML from [`examples/card.yaml`](examples/card.yaml)
+
+<details>
+<summary><strong>Show card YAML</strong></summary>
 
 ```yaml
 type: vertical-stack
@@ -413,9 +416,18 @@ cards:
               icon: mdi:timer-sand
         - type: conditional
           conditions:
+            - condition: or
+              conditions:
+                - condition: state
+                  entity: sensor.esphome_smart_updater_campaign
+                  state: running
+                - condition: state
+                  entity: sensor.esphome_smart_updater_campaign
+                  state: paused
             - condition: state
-              entity: binary_sensor.esphome_smart_updater_current_error_visible
-              state: "on"
+              entity: sensor.esphome_smart_updater_campaign
+              attribute: current_error
+              state_not: ""
           card:
             type: custom:mushroom-template-card
             primary: >
@@ -430,14 +442,10 @@ cards:
             secondary: >
               {% set err =
               state_attr('sensor.esphome_smart_updater_campaign','current_error')
-              | default('', true) | trim %} {% set rec =
+              %} {% set rec =
               state_attr('sensor.esphome_smart_updater_campaign','recent_errors')
-              or [] %} {% set rec = rec | select('string') | map('trim') |
-              reject('equalto','') | list %} {% if err %}
-                {{ err }}{% if rec | count > 0 %} --- {% for e in rec %} • {{ e }}{% endfor %}{% endif %}
-              {% elif rec | count > 0 %}
-                {% for e in rec %}• {{ e }}{% if not loop.last %} {% endif %}{% endfor %}
-              {% endif %}
+              or [] %} {{ err }} {% if rec | count > 0 %} --- {% for e in rec %}
+              • {{ e }} {% endfor %}{% endif %}
             multiline_secondary: true
             icon: >
               {% if
@@ -499,8 +507,8 @@ cards:
         - type: conditional
           conditions:
             - condition: state
-              entity: binary_sensor.esphome_smart_updater_pause_info_visible
-              state: "on"
+              entity: sensor.esphome_smart_updater_campaign
+              state: paused
           card:
             type: markdown
             content: >
@@ -680,6 +688,8 @@ cards:
             '-' }}
 
 ```
+
+</details>
 
 ---
 
