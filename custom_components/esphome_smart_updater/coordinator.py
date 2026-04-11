@@ -447,6 +447,7 @@ class CampaignManager:
             )
             or DEFAULT_RESTORE_RESUME_DELAY
         )
+        self.waiting_ha_started = False
         self.resume_at_ts = int(time.time()) + delay
         await self._async_save()
         self._notify()
