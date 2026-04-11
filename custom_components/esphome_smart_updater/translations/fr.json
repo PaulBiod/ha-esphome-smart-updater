@@ -62,7 +62,7 @@
     "error_critical": "Erreur critique",
     "waiting_ha": "Attente du démarrage complet de Home Assistant",
     "resume_in": "Reprise automatique dans {time}",
-    "running_label": "Running",
+    "running_label": "En cours",
     "title": "ESPHome Smart Updater",
     "progress": "Progression",
     "updates_available": "{count} mise(s) à jour disponible(s)",
