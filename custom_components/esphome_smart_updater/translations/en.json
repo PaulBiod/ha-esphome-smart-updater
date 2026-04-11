@@ -30,6 +30,52 @@
     }
   },
   "ui": {
-    "no_updates": "✅ All your devices are up to date"
+    "no_updates": "✅ All your devices are up to date",
+    "current_device": "Current device",
+    "success": "Success",
+    "failed": "Failed",
+    "skipped": "Skipped",
+    "eta": "ETA",
+    "delay": "Dynamic delay",
+    "server_load": "Server load",
+    "cpu": "CPU",
+    "cpu_temp": "CPU Temp",
+    "load_1m": "Load 1m",
+    "start": "Start",
+    "pause": "Pause",
+    "resume": "Resume",
+    "stop": "Stop",
+    "clear_report": "Clear report",
+    "running": "Running",
+    "paused": "Paused",
+    "stop_requested": "Stop requested",
+    "pause_requested": "Pause requested",
+    "last_device": "Last device running",
+    "report": "Last report",
+    "infos": "Infos",
+    "current": "Current",
+    "next_1": "Next 1",
+    "next_2": "Next 2",
+    "next_3": "Next 3",
+    "error": "Error",
+    "error_current": "Current error",
+    "error_critical": "Critical error",
+    "waiting_ha": "Waiting for Home Assistant startup",
+    "resume_in": "Resuming in {time}",
+    "running_label": "Running"
+  },
+  "report": {
+    "summary": "✅ {done} success • ❌ {failed} failed • ⏭ {skipped} skipped",
+    "line_done": "Success: {done}",
+    "line_failed": "Failed: {failed}",
+    "line_skipped": "Skipped: {skipped}"
+  },
+  "errors": {
+    "timeout": "OTA timeout",
+    "offline": "Device offline",
+    "connection": "Connection error",
+    "unknown": "Unknown error",
+    "worker_crash": "Worker crashed",
+    "skipped": "Device skipped"
   }
 }
