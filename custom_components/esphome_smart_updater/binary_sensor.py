@@ -7,6 +7,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import (
     BINARY_SENSOR_LAST_DEVICE_RUNNING_UNIQUE_ID,
+    BINARY_SENSOR_PAUSE_INFO_VISIBLE_UNIQUE_ID,
     BINARY_SENSOR_PAUSE_REQUESTED_UNIQUE_ID,
     BINARY_SENSOR_REPORT_AVAILABLE_UNIQUE_ID,
     BINARY_SENSOR_STOP_REQUESTED_UNIQUE_ID,
@@ -28,6 +29,7 @@ async def async_setup_entry(
             ESUPauseRequestedBinarySensor(manager),
             ESUStopRequestedBinarySensor(manager),
             ESULastDeviceRunningBinarySensor(manager),
+            ESUPauseInfoVisibleBinarySensor(manager),
         ]
     )
 
@@ -108,3 +110,20 @@ class ESULastDeviceRunningBinarySensor(_BaseESUBinarySensor):
             return True
 
         return total > 0 and index >= total
+
+class ESUPauseInfoVisibleBinarySensor(_BaseESUBinarySensor):
+    _attr_name = "ESPHome Smart Updater Pause Info Visible"
+    _attr_unique_id = BINARY_SENSOR_PAUSE_INFO_VISIBLE_UNIQUE_ID
+    _attr_icon = "mdi:information-outline"
+
+    @property
+    def is_on(self):
+        if self.manager.state != "paused":
+            return False
+
+        if self.manager.waiting_ha_started:
+            return True
+
+        resume_at_ts = int(getattr(self.manager, "resume_at_ts", 0) or 0)
+        return resume_at_ts > 0
+
