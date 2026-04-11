@@ -26,6 +26,8 @@ BINARY_SENSOR_THROTTLE_ENABLED_UNIQUE_ID = "esphome_smart_updater_throttle_enabl
 BINARY_SENSOR_PAUSE_REQUESTED_UNIQUE_ID = "esphome_smart_updater_pause_requested"
 BINARY_SENSOR_STOP_REQUESTED_UNIQUE_ID = "esphome_smart_updater_stop_requested"
 BINARY_SENSOR_LAST_DEVICE_RUNNING_UNIQUE_ID = "esphome_smart_updater_last_device_running"
+BINARY_SENSOR_PAUSE_INFO_VISIBLE_UNIQUE_ID = "esphome_smart_updater_pause_info_visible"
+BINARY_SENSOR_CURRENT_ERROR_VISIBLE_UNIQUE_ID = "esphome_smart_updater_current_error_visible"
 
 BUTTON_START_UNIQUE_ID = "esu_start"
 BUTTON_PAUSE_UNIQUE_ID = "esu_pause"
