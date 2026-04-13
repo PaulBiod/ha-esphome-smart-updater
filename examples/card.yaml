@@ -92,7 +92,8 @@ cards:
         {% set t = state_attr('sensor.esphome_smart_updater_campaign','t') or {}
         %} {{ t.start if t.start is defined else 'Start' }}
       secondary: >
-        {{ (t.updates_available if t.updates_available is defined else '{count}
+        {% set t = state_attr('sensor.esphome_smart_updater_campaign','t') or {}
+        %} {{ (t.updates_available if t.updates_available is defined else '{count}
         update(s) available') | replace('{count}',
         (states('sensor.esphome_smart_updater_pending_updates') |
         int(0))|string) }}
