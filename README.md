@@ -315,7 +315,8 @@ cards:
         {% set t = state_attr('sensor.esphome_smart_updater_campaign','t') or {}
         %} {{ t.start if t.start is defined else 'Start' }}
       secondary: >
-        {{ (t.updates_available if t.updates_available is defined else '{count}
+        {% set t = state_attr('sensor.esphome_smart_updater_campaign','t') or {}
+        %} {{ (t.updates_available if t.updates_available is defined else '{count}
         update(s) available') | replace('{count}',
         (states('sensor.esphome_smart_updater_pending_updates') |
         int(0))|string) }}
@@ -421,18 +422,9 @@ cards:
               icon: mdi:timer-sand
         - type: conditional
           conditions:
-            - condition: or
-              conditions:
-                - condition: state
-                  entity: sensor.esphome_smart_updater_campaign
-                  state: running
-                - condition: state
-                  entity: sensor.esphome_smart_updater_campaign
-                  state: paused
             - condition: state
-              entity: sensor.esphome_smart_updater_campaign
-              attribute: current_error
-              state_not: ""
+              entity: binary_sensor.esphome_smart_updater_current_error_visible
+              state: "on"
           card:
             type: custom:mushroom-template-card
             primary: >
@@ -447,10 +439,14 @@ cards:
             secondary: >
               {% set err =
               state_attr('sensor.esphome_smart_updater_campaign','current_error')
-              %} {% set rec =
+              | default('', true) | trim %} {% set rec =
               state_attr('sensor.esphome_smart_updater_campaign','recent_errors')
-              or [] %} {{ err }} {% if rec | count > 0 %} --- {% for e in rec %}
-              • {{ e }} {% endfor %}{% endif %}
+              or [] %} {% set rec = rec | select('string') | map('trim') |
+              reject('equalto','') | list %} {% if err %}
+                {{ err }}{% if rec | count > 0 %} --- {% for e in rec %} • {{ e }}{% endfor %}{% endif %}
+              {% elif rec | count > 0 %}
+                {% for e in rec %}• {{ e }}{% if not loop.last %} {% endif %}{% endfor %}
+              {% endif %}
             multiline_secondary: true
             icon: >
               {% if
@@ -512,8 +508,8 @@ cards:
         - type: conditional
           conditions:
             - condition: state
-              entity: sensor.esphome_smart_updater_campaign
-              state: paused
+              entity: binary_sensor.esphome_smart_updater_pause_info_visible
+              state: "on"
           card:
             type: markdown
             content: >
@@ -691,6 +687,7 @@ cards:
             **{{ t.error if t.error is defined else 'Error' }} :** {{
             state_attr('sensor.esphome_smart_updater_campaign','last_error') or
             '-' }}
+
 
 ```
 
