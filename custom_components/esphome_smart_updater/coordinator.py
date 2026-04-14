@@ -92,8 +92,10 @@ class CampaignManager:
 
         self.pending_updates_count = 0
         self._pending_update_entities: list[str] = []
+        self._translations_cache: dict[str, dict] = {}
 
     async def async_initialize(self) -> None:
+        await self._async_preload_translations()
         await self._async_refresh_pending_updates()
         await self._async_restore()
 
@@ -218,17 +220,33 @@ class CampaignManager:
             candidates.append("en")
         return candidates
 
-    def _load_translation_file(self, language: str) -> dict:
+    async def _async_preload_translations(self) -> None:
         translations_dir = Path(__file__).parent / "translations"
-        path = translations_dir / f"{language}.json"
-        if not path.exists():
-            return {}
-        try:
-            data = json.loads(path.read_text(encoding="utf-8"))
-            return data if isinstance(data, dict) else {}
-        except Exception:
-            _LOGGER.exception("Unable to read translation file %s", path)
-            return {}
+
+        def _read_all_translation_files() -> dict[str, dict]:
+            result: dict[str, dict] = {}
+            if not translations_dir.exists():
+                return result
+
+            for path in translations_dir.glob("*.json"):
+                try:
+                    data = json.loads(path.read_text(encoding="utf-8"))
+                    if isinstance(data, dict):
+                        result[path.stem] = data
+                    else:
+                        result[path.stem] = {}
+                except Exception:
+                    _LOGGER.exception("Unable to read translation file %s", path)
+                    result[path.stem] = {}
+
+            return result
+
+        self._translations_cache = await self.hass.async_add_executor_job(
+            _read_all_translation_files
+        )
+
+    def _load_translation_file(self, language: str) -> dict:
+        return self._translations_cache.get(language, {})
 
     def _load_translation_text(self, key_path: str) -> str | None:
         parts = key_path.split(".")
