@@ -1,0 +1,44 @@
+{
+  "config": {
+    "abort": {
+      "single_instance_allowed": "Es ist nur eine Instanz erlaubt."
+    },
+    "step": {
+      "user": {
+        "title": "Allgemeine Einstellungen",
+        "description": "Konfiguriere das globale Verhalten der ESPHome-OTA-Kampagnen.",
+        "data": {
+          "timeout": "Timeout vor Fehler (Sekunden)",
+          "max_items": "Maximale Anzahl Geräte pro Stapel",
+          "restore_resume_delay": "Verzögerung vor der Fortsetzung nach einem Home-Assistant-Neustart",
+          "throttle": "Automatische Anpassung der Verzögerung aktivieren"
+        }
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Allgemeine Einstellungen",
+        "description": "Konfiguriere das globale Verhalten der ESPHome-OTA-Kampagnen.",
+        "data": {
+          "timeout": "Timeout vor Fehler (Sekunden)",
+          "max_items": "Maximale Anzahl Geräte pro Stapel",
+          "restore_resume_delay": "Verzögerung vor der Fortsetzung nach einem Home-Assistant-Neustart",
+          "throttle": "Automatische Anpassung der Verzögerung aktivieren"
+        }
+      },
+      "throttle": {
+        "title": "Automatische Anpassung der Verzögerung",
+        "description": "Wähle, welche Sensoren zur Abschätzung der Serverlast verwendet werden sollen, und definiere dann die minimale und maximale Verzögerung zwischen Updates.",
+        "data": {
+          "cpu_sensor": "CPU-Auslastungssensor (%)",
+          "temp_sensor": "CPU-Temperatursensor (°C)",
+          "load_sensor": "Systemlastsensor (1-Minuten-Last)",
+          "delay_min": "Minimale Verzögerung zwischen Updates (s)",
+          "delay_max": "Maximale Verzögerung zwischen Updates (s)"
+        }
+      }
+    }
+  }
+}

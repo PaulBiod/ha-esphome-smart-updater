@@ -1,0 +1,44 @@
+{
+  "config": {
+    "abort": {
+      "single_instance_allowed": "Dozwolona jest tylko jedna instancja."
+    },
+    "step": {
+      "user": {
+        "title": "Ustawienia ogólne",
+        "description": "Skonfiguruj ogólne zachowanie kampanii OTA ESPHome.",
+        "data": {
+          "timeout": "Limit czasu przed błędem (sekundy)",
+          "max_items": "Maksymalna liczba urządzeń w partii",
+          "restore_resume_delay": "Opóźnienie przed wznowieniem po restarcie Home Assistant",
+          "throttle": "Włącz automatyczne dostosowanie opóźnienia"
+        }
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Ustawienia ogólne",
+        "description": "Skonfiguruj ogólne zachowanie kampanii OTA ESPHome.",
+        "data": {
+          "timeout": "Limit czasu przed błędem (sekundy)",
+          "max_items": "Maksymalna liczba urządzeń w partii",
+          "restore_resume_delay": "Opóźnienie przed wznowieniem po restarcie Home Assistant",
+          "throttle": "Włącz automatyczne dostosowanie opóźnienia"
+        }
+      },
+      "throttle": {
+        "title": "Automatyczne dostosowanie opóźnienia",
+        "description": "Wybierz czujniki używane do oszacowania obciążenia serwera, a następnie ustaw minimalne i maksymalne opóźnienie między aktualizacjami.",
+        "data": {
+          "cpu_sensor": "Czujnik użycia CPU (%)",
+          "temp_sensor": "Czujnik temperatury CPU (°C)",
+          "load_sensor": "Czujnik obciążenia systemu (obciążenie 1 min)",
+          "delay_min": "Minimalne opóźnienie między aktualizacjami (s)",
+          "delay_max": "Maksymalne opóźnienie między aktualizacjami (s)"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,44 @@
+{
+  "config": {
+    "abort": {
+      "single_instance_allowed": "Solo se permite una instancia."
+    },
+    "step": {
+      "user": {
+        "title": "Configuración general",
+        "description": "Configura el comportamiento global de las campañas OTA de ESPHome.",
+        "data": {
+          "timeout": "Tiempo de espera antes del fallo (segundos)",
+          "max_items": "Número máximo de dispositivos por lote",
+          "restore_resume_delay": "Retraso antes de reanudar tras reiniciar Home Assistant",
+          "throttle": "Activar la adaptación automática del retraso"
+        }
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Configuración general",
+        "description": "Configura el comportamiento global de las campañas OTA de ESPHome.",
+        "data": {
+          "timeout": "Tiempo de espera antes del fallo (segundos)",
+          "max_items": "Número máximo de dispositivos por lote",
+          "restore_resume_delay": "Retraso antes de reanudar tras reiniciar Home Assistant",
+          "throttle": "Activar la adaptación automática del retraso"
+        }
+      },
+      "throttle": {
+        "title": "Adaptación automática del retraso",
+        "description": "Elige qué sensores deben usarse para estimar la carga del servidor y luego define el retraso mínimo y máximo entre actualizaciones.",
+        "data": {
+          "cpu_sensor": "Sensor de uso de CPU (%)",
+          "temp_sensor": "Sensor de temperatura de CPU (°C)",
+          "load_sensor": "Sensor de carga del sistema (carga de 1 min)",
+          "delay_min": "Retraso mínimo entre actualizaciones (s)",
+          "delay_max": "Retraso máximo entre actualizaciones (s)"
+        }
+      }
+    }
+  }
+}

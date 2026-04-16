@@ -1,0 +1,44 @@
+{
+  "config": {
+    "abort": {
+      "single_instance_allowed": "Slechts één instantie is toegestaan."
+    },
+    "step": {
+      "user": {
+        "title": "Algemene instellingen",
+        "description": "Configureer het algemene gedrag van ESPHome OTA-campagnes.",
+        "data": {
+          "timeout": "Time-out vóór fout (seconden)",
+          "max_items": "Maximum aantal apparaten per batch",
+          "restore_resume_delay": "Vertraging vóór hervatten na een herstart van Home Assistant",
+          "throttle": "Automatische aanpassing van de vertraging inschakelen"
+        }
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Algemene instellingen",
+        "description": "Configureer het algemene gedrag van ESPHome OTA-campagnes.",
+        "data": {
+          "timeout": "Time-out vóór fout (seconden)",
+          "max_items": "Maximum aantal apparaten per batch",
+          "restore_resume_delay": "Vertraging vóór hervatten na een herstart van Home Assistant",
+          "throttle": "Automatische aanpassing van de vertraging inschakelen"
+        }
+      },
+      "throttle": {
+        "title": "Automatische aanpassing van de vertraging",
+        "description": "Kies welke sensoren moeten worden gebruikt om de serverbelasting te schatten en definieer daarna de minimale en maximale vertraging tussen updates.",
+        "data": {
+          "cpu_sensor": "CPU-gebruikssensor (%)",
+          "temp_sensor": "CPU-temperatuursensor (°C)",
+          "load_sensor": "Systeembelastingssensor (1-minuutbelasting)",
+          "delay_min": "Minimale vertraging tussen updates (s)",
+          "delay_max": "Maximale vertraging tussen updates (s)"
+        }
+      }
+    }
+  }
+}

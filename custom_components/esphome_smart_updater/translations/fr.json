@@ -1,0 +1,44 @@
+{
+  "config": {
+    "abort": {
+      "single_instance_allowed": "Une seule instance est autorisée."
+    },
+    "step": {
+      "user": {
+        "title": "Réglages généraux",
+        "description": "Configurer le comportement global des campagnes OTA ESPHome.",
+        "data": {
+          "timeout": "Timeout avant échec (secondes)",
+          "max_items": "Nombre maximum d'appareils par lot",
+          "restore_resume_delay": "Délai avant reprise après redémarrage de Home Assistant",
+          "throttle": "Activer l'adaptation automatique du délai"
+        }
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Réglages généraux",
+        "description": "Configurer le comportement global des campagnes OTA ESPHome.",
+        "data": {
+          "timeout": "Timeout avant échec (secondes)",
+          "max_items": "Nombre maximum d'appareils par lot",
+          "restore_resume_delay": "Délai avant reprise après redémarrage de Home Assistant",
+          "throttle": "Activer l'adaptation automatique du délai"
+        }
+      },
+      "throttle": {
+        "title": "Adaptation automatique du délai",
+        "description": "Choisir les capteurs utilisés pour estimer la charge du serveur, puis définir les délais minimum et maximum entre deux mises à jour.",
+        "data": {
+          "cpu_sensor": "Capteur d'utilisation CPU (%)",
+          "temp_sensor": "Capteur de température CPU (°C)",
+          "load_sensor": "Capteur de charge système (load 1 mn)",
+          "delay_min": "Délai minimum entre deux mises à jour (s)",
+          "delay_max": "Délai maximum entre deux mises à jour (s)"
+        }
+      }
+    }
+  }
+}

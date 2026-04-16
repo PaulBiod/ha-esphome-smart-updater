@@ -1,0 +1,44 @@
+{
+  "config": {
+    "abort": {
+      "single_instance_allowed": "Je povolena pouze jedna instance."
+    },
+    "step": {
+      "user": {
+        "title": "Obecná nastavení",
+        "description": "Nakonfigurujte globální chování OTA kampaní ESPHome.",
+        "data": {
+          "timeout": "Časový limit před chybou (sekundy)",
+          "max_items": "Maximální počet zařízení v dávce",
+          "restore_resume_delay": "Zpoždění před pokračováním po restartu Home Assistant",
+          "throttle": "Povolit automatické přizpůsobení zpoždění"
+        }
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Obecná nastavení",
+        "description": "Nakonfigurujte globální chování OTA kampaní ESPHome.",
+        "data": {
+          "timeout": "Časový limit před chybou (sekundy)",
+          "max_items": "Maximální počet zařízení v dávce",
+          "restore_resume_delay": "Zpoždění před pokračováním po restartu Home Assistant",
+          "throttle": "Povolit automatické přizpůsobení zpoždění"
+        }
+      },
+      "throttle": {
+        "title": "Automatické přizpůsobení zpoždění",
+        "description": "Vyberte senzory používané k odhadu zatížení serveru a potom nastavte minimální a maximální zpoždění mezi aktualizacemi.",
+        "data": {
+          "cpu_sensor": "Senzor využití CPU (%)",
+          "temp_sensor": "Senzor teploty CPU (°C)",
+          "load_sensor": "Senzor zatížení systému (zátěž za 1 min)",
+          "delay_min": "Minimální zpoždění mezi aktualizacemi (s)",
+          "delay_max": "Maximální zpoždění mezi aktualizacemi (s)"
+        }
+      }
+    }
+  }
+}

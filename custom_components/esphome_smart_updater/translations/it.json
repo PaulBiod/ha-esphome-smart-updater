@@ -1,0 +1,44 @@
+{
+  "config": {
+    "abort": {
+      "single_instance_allowed": "È consentita una sola istanza."
+    },
+    "step": {
+      "user": {
+        "title": "Impostazioni generali",
+        "description": "Configura il comportamento globale delle campagne OTA di ESPHome.",
+        "data": {
+          "timeout": "Timeout prima dell'errore (secondi)",
+          "max_items": "Numero massimo di dispositivi per lotto",
+          "restore_resume_delay": "Ritardo prima della ripresa dopo il riavvio di Home Assistant",
+          "throttle": "Attiva l'adattamento automatico del ritardo"
+        }
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Impostazioni generali",
+        "description": "Configura il comportamento globale delle campagne OTA di ESPHome.",
+        "data": {
+          "timeout": "Timeout prima dell'errore (secondi)",
+          "max_items": "Numero massimo di dispositivi per lotto",
+          "restore_resume_delay": "Ritardo prima della ripresa dopo il riavvio di Home Assistant",
+          "throttle": "Attiva l'adattamento automatico del ritardo"
+        }
+      },
+      "throttle": {
+        "title": "Adattamento automatico del ritardo",
+        "description": "Scegli quali sensori usare per stimare il carico del server, quindi definisci il ritardo minimo e massimo tra gli aggiornamenti.",
+        "data": {
+          "cpu_sensor": "Sensore utilizzo CPU (%)",
+          "temp_sensor": "Sensore temperatura CPU (°C)",
+          "load_sensor": "Sensore di carico del sistema (carico 1 min)",
+          "delay_min": "Ritardo minimo tra aggiornamenti (s)",
+          "delay_max": "Ritardo massimo tra aggiornamenti (s)"
+        }
+      }
+    }
+  }
+}
