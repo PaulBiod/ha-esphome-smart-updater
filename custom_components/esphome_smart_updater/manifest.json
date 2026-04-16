@@ -1,7 +1,7 @@
 {
   "domain": "esphome_smart_updater",
   "name": "ESPHome Smart Updater",
-  "version": "1.0.0",
+  "version": "1.0.10",
   "documentation": "https://github.com/PaulBiod/ha-esphome-smart-updater",
   "issue_tracker": "https://github.com/PaulBiod/ha-esphome-smart-updater/issues",
   "dependencies": [],
