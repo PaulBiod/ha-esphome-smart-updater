@@ -316,8 +316,8 @@ cards:
         %} {{ t.start if t.start is defined else 'Start' }}
       secondary: >
         {% set t = state_attr('sensor.esphome_smart_updater_campaign','t') or {}
-        %} {{ (t.updates_available if t.updates_available is defined else '{count}
-        update(s) available') | replace('{count}',
+        %} {{ (t.updates_available if t.updates_available is defined else
+        '{count} update(s) available') | replace('{count}',
         (states('sensor.esphome_smart_updater_pending_updates') |
         int(0))|string) }}
       icon: mdi:play
@@ -409,7 +409,12 @@ cards:
               secondary: >
                 {% set s =
                 state_attr('sensor.esphome_smart_updater_campaign','eta_s') |
-                int(0) %} {{ '%02d:%02d' | format(s//60, s%60) }}
+                int(0) %} {% set h = s // 3600 %} {% set m = (s % 3600) // 60 %}
+                {% if s >= 3600 %}
+                  {{ '%dh%02dmn' | format(h, m) }}
+                {% else %}
+                  {{ '%d mn' | format(m) }}
+                {% endif %}
               icon: mdi:timer
             - type: custom:mushroom-template-card
               primary: >
@@ -442,7 +447,8 @@ cards:
               | default('', true) | trim %} {% set rec =
               state_attr('sensor.esphome_smart_updater_campaign','recent_errors')
               or [] %} {% set rec = rec | select('string') | map('trim') |
-              reject('equalto','') | list %} {% if err %}
+              reject('equalto','') | reject('equalto', err) | unique | list %}
+              {% if err %}
                 {{ err }}{% if rec | count > 0 %} --- {% for e in rec %} • {{ e }}{% endfor %}{% endif %}
               {% elif rec | count > 0 %}
                 {% for e in rec %}• {{ e }}{% if not loop.last %} {% endif %}{% endfor %}
@@ -664,7 +670,16 @@ cards:
         - type: markdown
           content: >
             {% set t = state_attr('sensor.esphome_smart_updater_campaign','t')
-            or {} %} ### 📟 {{ t.infos if t.infos is defined else 'Infos' }}
+            or {} %} ### 📟 {{ t.infos if t.infos is defined else 'Infos' }}{%
+            set start =
+            state_attr('sensor.esphome_smart_updater_campaign','start_ts') |
+            int(0) %}{% set campaign_state =
+            states('sensor.esphome_smart_updater_campaign') %}{% if start > 0
+            and campaign_state in ['running','paused'] %}{% set s =
+            (as_timestamp(now()) | int(0)) - start %}{% set h = s // 3600 %}{%
+            set m = (s % 3600) // 60 %} • {{ t.duration if t.duration is defined
+            else 'Duration' }} : {% if h > 0 %}{{ '%dh%02d' | format(h, m) }}{%
+            else %}{{ '%02d:%02d' | format(m, s % 60) }}{% endif %}{% endif %}
 
             {% set e =
             state_attr('sensor.esphome_smart_updater_campaign','current_update_entity')
@@ -687,6 +702,7 @@ cards:
             **{{ t.error if t.error is defined else 'Error' }} :** {{
             state_attr('sensor.esphome_smart_updater_campaign','last_error') or
             '-' }}
+
 
 
 ```
