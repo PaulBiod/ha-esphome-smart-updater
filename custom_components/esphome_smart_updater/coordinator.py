@@ -577,17 +577,9 @@ class CampaignManager:
         self._notify()
 
     async def _async_reconcile_remaining_with_pending(self) -> None:
-        pending = set(self._pending_update_entities)
+        finalized = set(self.done) | set(self.failed) | set(self.skipped)
 
-        newly_done = [entity_id for entity_id in self.remaining if entity_id not in pending]
-        still_pending = [entity_id for entity_id in self.remaining if entity_id in pending]
-
-        if newly_done:
-            for entity_id in newly_done:
-                if entity_id not in self.done:
-                    self.done.append(entity_id)
-
-        self.remaining = still_pending
+        self.remaining = [entity_id for entity_id in self.remaining if entity_id not in finalized]
         self.queue = list(dict.fromkeys(self.done + self.failed + self.skipped + self.remaining))
         self.total = max(self.total, len(self.queue))
         self.index = min(
@@ -604,7 +596,7 @@ class CampaignManager:
             self.avg_duration_s = round(self.duration_s / processed, 1)
             self.eta_s = int(len(self.remaining) * self.avg_duration_s)
         else:
-            self.eta_s = 0
+            self.eta_s = len(self.remaining) * 240 if self.remaining else 0
 
     def _ensure_worker(self) -> None:
         if self._worker_task is not None and not self._worker_task.done():
@@ -751,7 +743,7 @@ class CampaignManager:
             self.eta_s = int(len(self.remaining) * self.avg_duration_s)
         else:
             self.avg_duration_s = 0
-            self.eta_s = 0
+            self.eta_s = len(self.remaining) * 240 if self.remaining else 0
 
         await self._async_save()
         self._notify()
@@ -1002,6 +994,11 @@ class CampaignManager:
 
         if self.last_error:
             lines.extend(["", self._tr("report.line_error", "Error: {error}", error=self.last_error)])
+
+        if self.done:
+            lines.extend(["", self._tr("report.success_header", "Success:")])
+            for entity_id in self.done:
+                lines.append(f"- {self._entity_label(entity_id)}")
 
         if self.failed_details:
             lines.extend(["", self._tr("report.failed_header", "Failed:")])
