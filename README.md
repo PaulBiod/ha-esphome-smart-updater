@@ -127,6 +127,29 @@ Accessible via:
 
 > The interface automatically adapts to your Home Assistant language.
 
+## ⚠️ Prerequisite: Enable ESPHome Firmware Update Entities
+
+For the integration to work properly, you must ensure that **firmware update entities are enabled** for each ESPHome device.
+
+### Why?
+The Smart Updater relies on `update.*` entities provided by ESPHome to detect and install firmware updates.  
+If these entities are disabled, the integration will not detect any available updates.
+
+### How to enable them
+
+1. Go to **Settings → Devices & Services → ESPHome**
+2. Select one of your ESPHome devices
+3. Open the **Entities** tab
+4. Look for the entity named something like:
+   - `update.<device_name>_firmware`
+5. Make sure it is **enabled**
+
+Repeat this for each ESPHome device you want to include in the campaign.
+
+### Example
+
+![Enable ESPHome firmware entity](images/micrologiciel.jpg)
+
 ## 🛠 Installation
 
 ### 🔘 Option 1 — One-click install
