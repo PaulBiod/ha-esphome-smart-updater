@@ -345,7 +345,7 @@ class CampaignManager:
         self.end_ts = 0
         self.duration_s = 0
         self.avg_duration_s = 0
-        self.eta_s = 0
+        self.eta_s = len(self.remaining) * 240 if self.remaining else 0
         self.delay_s = int(
             self.entry.options.get(CONF_DELAY_MIN, DEFAULT_DELAY_MIN) or DEFAULT_DELAY_MIN
         )
