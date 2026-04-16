@@ -68,7 +68,8 @@
     "updates_available": "{count} update(s) beschikbaar",
     "stop_wait": "Het huidige apparaat voltooit eerst het flashen voordat wordt gestopt",
     "pause_wait": "Het huidige apparaat voltooit eerst het flashen voordat wordt gepauzeerd",
-    "last_device_info": "Pauzeren of stoppen is niet zinvol bij de laatste flash"
+    "last_device_info": "Pauzeren of stoppen is niet zinvol bij de laatste flash",
+    "duration": "Duur"
   },
   "report": {
     "summary": "✅ {done} geslaagd • ❌ {failed} mislukt • ⏭ {skipped} overgeslagen",
