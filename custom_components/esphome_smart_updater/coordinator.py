@@ -281,6 +281,7 @@ class CampaignManager:
             "failed": self._tr("ui.failed", "Failed"),
             "skipped": self._tr("ui.skipped", "Skipped"),
             "eta": self._tr("ui.eta", "ETA"),
+            "duration": self._tr("ui.duration", "Duration"),
             "delay": self._tr("ui.delay", "Dynamic delay"),
             "server_load": self._tr("ui.server_load", "Server load"),
             "cpu": self._tr("ui.cpu", "CPU"),
