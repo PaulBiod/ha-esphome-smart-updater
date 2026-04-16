@@ -1,0 +1,44 @@
+{
+  "config": {
+    "abort": {
+      "single_instance_allowed": "Només es permet una instància."
+    },
+    "step": {
+      "user": {
+        "title": "Configuració general",
+        "description": "Configureu el comportament global de les campanyes OTA d'ESPHome.",
+        "data": {
+          "timeout": "Temps d'espera abans de l'error (segons)",
+          "max_items": "Nombre màxim de dispositius per lot",
+          "restore_resume_delay": "Retard abans de reprendre després de reiniciar Home Assistant",
+          "throttle": "Activa l'adaptació automàtica del retard"
+        }
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Configuració general",
+        "description": "Configureu el comportament global de les campanyes OTA d'ESPHome.",
+        "data": {
+          "timeout": "Temps d'espera abans de l'error (segons)",
+          "max_items": "Nombre màxim de dispositius per lot",
+          "restore_resume_delay": "Retard abans de reprendre després de reiniciar Home Assistant",
+          "throttle": "Activa l'adaptació automàtica del retard"
+        }
+      },
+      "throttle": {
+        "title": "Adaptació automàtica del retard",
+        "description": "Trieu quins sensors s'han d'utilitzar per estimar la càrrega del servidor i després definiu el retard mínim i màxim entre actualitzacions.",
+        "data": {
+          "cpu_sensor": "Sensor d'ús de CPU (%)",
+          "temp_sensor": "Sensor de temperatura de la CPU (°C)",
+          "load_sensor": "Sensor de càrrega del sistema (càrrega d'1 min)",
+          "delay_min": "Retard mínim entre actualitzacions (s)",
+          "delay_max": "Retard màxim entre actualitzacions (s)"
+        }
+      }
+    }
+  }
+}
