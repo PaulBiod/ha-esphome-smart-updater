@@ -221,7 +221,7 @@ class CampaignManager:
         return candidates
 
     async def _async_preload_translations(self) -> None:
-        translations_dir = Path(__file__).parent / "translations"
+        translations_dir = Path(__file__).parent / "locale"
 
         def _read_all_translation_files() -> dict[str, dict]:
             result: dict[str, dict] = {}
