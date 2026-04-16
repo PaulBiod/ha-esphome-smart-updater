@@ -68,7 +68,8 @@
     "updates_available": "{count} actualização(ões) disponível(eis)",
     "stop_wait": "O dispositivo actual termina o flash antes de parar",
     "pause_wait": "O dispositivo actual termina o flash antes de pausar",
-    "last_device_info": "Pausar ou parar não é útil no último flash"
+    "last_device_info": "Pausar ou parar não é útil no último flash",
+    "duration": "Duração"
   },
   "report": {
     "summary": "✅ {done} sucesso • ❌ {failed} falhas • ⏭ {skipped} ignorados",
