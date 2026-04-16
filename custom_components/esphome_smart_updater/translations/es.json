@@ -68,7 +68,8 @@
     "updates_available": "{count} actualización(es) disponible(s)",
     "stop_wait": "El dispositivo actual termina de flashearse antes de detenerse",
     "pause_wait": "El dispositivo actual termina de flashearse antes de pausarse",
-    "last_device_info": "No tiene sentido pausar o detener en el último flasheo"
+    "last_device_info": "No tiene sentido pausar o detener en el último flasheo",
+    "duration": "Duración"
   },
   "report": {
     "summary": "✅ {done} correctos • ❌ {failed} fallidos • ⏭ {skipped} omitidos",
