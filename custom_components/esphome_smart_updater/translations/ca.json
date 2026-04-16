@@ -68,7 +68,8 @@
     "updates_available": "{count} actualització(ns) disponible(s)",
     "stop_wait": "El dispositiu actual acaba el flaix abans d'aturar-se",
     "pause_wait": "El dispositiu actual acaba el flaix abans de pausar-se",
-    "last_device_info": "No té sentit pausar o aturar durant l'últim flaix"
+    "last_device_info": "No té sentit pausar o aturar durant l'últim flaix",
+    "duration": "Durada"
   },
   "report": {
     "summary": "✅ {done} correctes • ❌ {failed} fallits • ⏭ {skipped} omesos",
