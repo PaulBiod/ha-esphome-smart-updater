@@ -68,7 +68,8 @@
     "updates_available": "{count} Update(s) verfügbar",
     "stop_wait": "Das aktuelle Gerät beendet das Flashen, bevor gestoppt wird",
     "pause_wait": "Das aktuelle Gerät beendet das Flashen, bevor pausiert wird",
-    "last_device_info": "Beim letzten Flash sind Pause oder Stopp nicht sinnvoll"
+    "last_device_info": "Beim letzten Flash sind Pause oder Stopp nicht sinnvoll",
+    "duration": "Dauer"
   },
   "report": {
     "summary": "✅ {done} erfolgreich • ❌ {failed} fehlgeschlagen • ⏭ {skipped} übersprungen",
