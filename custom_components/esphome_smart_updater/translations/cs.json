@@ -68,7 +68,8 @@
     "updates_available": "{count} dostupná aktualizace/aktualizací",
     "stop_wait": "Aktuální zařízení dokončí flashování před zastavením",
     "pause_wait": "Aktuální zařízení dokončí flashování před pozastavením",
-    "last_device_info": "Pozastavení ani zastavení nemá při posledním flashování smysl"
+    "last_device_info": "Pozastavení ani zastavení nemá při posledním flashování smysl",
+    "duration": "Doba trvání"
   },
   "report": {
     "summary": "✅ {done} úspěšné • ❌ {failed} neúspěšné • ⏭ {skipped} přeskočené",
