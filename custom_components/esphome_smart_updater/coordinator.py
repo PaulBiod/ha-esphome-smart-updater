@@ -68,6 +68,8 @@ class CampaignManager:
 
         self.start_ts = 0
         self.end_ts = 0
+        self.pause_started_ts = 0
+        self.paused_total_s = 0
         self.duration_s = 0
         self.avg_duration_s = 0
         self.eta_s = 0
@@ -79,6 +81,8 @@ class CampaignManager:
 
         self.pause_requested = False
         self.stop_requested = False
+        self.pause_started_ts = 0
+        self.paused_total_s = 0
         self.waiting_ha_started = False
         self.resume_at_ts = 0
         self.last_error = ""
@@ -158,6 +162,8 @@ class CampaignManager:
             "index": self.index,
             "start_ts": self.start_ts or "",
             "end_ts": self.end_ts or "",
+            "pause_started_ts": self.pause_started_ts or "",
+            "paused_total_s": self.paused_total_s,
             "duration_s": self.duration_s,
             "avg_duration_s": self.avg_duration_s,
             "eta_s": self.eta_s,
@@ -344,6 +350,8 @@ class CampaignManager:
         self.index = 1 if updates else 0
         self.start_ts = int(time.time())
         self.end_ts = 0
+        self.pause_started_ts = 0
+        self.paused_total_s = 0
         self.duration_s = 0
         self.avg_duration_s = 0
         self.eta_s = len(self.remaining) * 240 if self.remaining else 0
@@ -376,6 +384,12 @@ class CampaignManager:
     async def async_resume(self, manual: bool = False) -> None:
         if self.state != "paused":
             return
+
+        now_ts = int(time.time())
+        if self.pause_started_ts:
+            self.paused_total_s += max(0, now_ts - self.pause_started_ts)
+        self.pause_started_ts = 0
+        self.duration_s = self._active_elapsed_s(now_ts)
 
         self.pause_requested = False
         self.stop_requested = False
@@ -431,6 +445,8 @@ class CampaignManager:
         self.index = 0
         self.start_ts = 0
         self.end_ts = 0
+        self.pause_started_ts = 0
+        self.paused_total_s = 0
         self.duration_s = 0
         self.avg_duration_s = 0
         self.eta_s = 0
@@ -531,6 +547,8 @@ class CampaignManager:
         self.total = data.get("total", len(self.queue))
         self.start_ts = int(data.get("start_ts", 0) or 0)
         self.end_ts = int(data.get("end_ts", 0) or 0)
+        self.pause_started_ts = int(data.get("pause_started_ts", 0) or 0)
+        self.paused_total_s = int(data.get("paused_total_s", 0) or 0)
         self.duration_s = int(data.get("duration_s", 0) or 0)
         self.avg_duration_s = float(data.get("avg_duration_s", 0) or 0)
         self.eta_s = int(data.get("eta_s", 0) or 0)
@@ -558,11 +576,15 @@ class CampaignManager:
         self.last_report_ts = int(data.get("last_report_ts", 0) or 0)
 
         if self.state in ("running", "paused") and self.remaining:
+            previous_state = self.state
             self.state = "paused"
             self.pause_requested = False
             self.stop_requested = False
             self.waiting_ha_started = True
             self.resume_at_ts = 0
+            if previous_state == "running" or not self.pause_started_ts:
+                self.pause_started_ts = int(time.time())
+            self.duration_s = self._active_elapsed_s()
             self.index = min(
                 len(self.done) + len(self.failed) + len(self.skipped) + 1,
                 max(self.total, 1),
@@ -570,6 +592,8 @@ class CampaignManager:
         else:
             self.waiting_ha_started = False
             self.resume_at_ts = 0
+            self.pause_started_ts = 0
+            self.duration_s = self._active_elapsed_s()
             self.index = min(
                 len(self.done) + len(self.failed) + len(self.skipped),
                 self.total,
@@ -592,11 +616,12 @@ class CampaignManager:
         )
 
         processed = len(self.done) + len(self.failed) + len(self.skipped)
+        self.duration_s = self._active_elapsed_s()
         if processed > 0 and self.start_ts:
-            self.duration_s = max(0, int(time.time()) - self.start_ts)
             self.avg_duration_s = round(self.duration_s / processed, 1)
             self.eta_s = int(len(self.remaining) * self.avg_duration_s)
         else:
+            self.avg_duration_s = 0
             self.eta_s = len(self.remaining) * 240 if self.remaining else 0
 
     def _ensure_worker(self) -> None:
@@ -619,6 +644,8 @@ class CampaignManager:
 
                 if self.pause_requested:
                     self.state = "paused"
+                    self.pause_started_ts = int(time.time())
+                    self.duration_s = self._active_elapsed_s()
                     self.current = ""
                     self.current_update_entity = ""
                     await self._async_save()
@@ -700,6 +727,8 @@ class CampaignManager:
 
                 if self.pause_requested:
                     self.state = "paused"
+                    self.pause_started_ts = int(time.time())
+                    self.duration_s = self._active_elapsed_s()
                     await self._async_save()
                     self._notify()
                     return
@@ -729,7 +758,7 @@ class CampaignManager:
         await self._async_refresh_pending_updates()
         await self._async_reconcile_remaining_with_pending()
 
-        self.duration_s = max(0, int(time.time()) - self.start_ts) if self.start_ts else 0
+        self.duration_s = self._active_elapsed_s()
 
         processed = len(self.done) + len(self.failed) + len(self.skipped)
         if processed > 0:
@@ -741,6 +770,18 @@ class CampaignManager:
 
         await self._async_save()
         self._notify()
+
+    def _active_elapsed_s(self, now_ts: int | None = None) -> int:
+        if not self.start_ts:
+            return 0
+
+        current_ts = int(now_ts if now_ts is not None else time.time())
+        paused_total = int(self.paused_total_s or 0)
+
+        if self.state == "paused" and self.pause_started_ts:
+            paused_total += max(0, current_ts - self.pause_started_ts)
+
+        return max(0, current_ts - self.start_ts - paused_total)
 
     async def _async_wait_between_items(self) -> None:
         elapsed_s = 0.0
@@ -1010,8 +1051,7 @@ class CampaignManager:
     async def _finish_campaign(self, stopped: bool = False) -> None:
         result = "stopped" if stopped else ("error" if self.failed else "success")
         self.end_ts = int(time.time())
-        if self.start_ts:
-            self.duration_s = max(0, self.end_ts - self.start_ts)
+        self.duration_s = self._active_elapsed_s(self.end_ts)
         message = self._build_summary_message(stopped=stopped)
 
         await self._send_persistent_notification(
@@ -1068,6 +1108,8 @@ class CampaignManager:
         self.index = 0
         self.start_ts = 0
         self.end_ts = 0
+        self.pause_started_ts = 0
+        self.paused_total_s = 0
         self.duration_s = 0
         self.avg_duration_s = 0
         self.eta_s = 0
