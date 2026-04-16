@@ -68,7 +68,8 @@
     "updates_available": "{count} update(s) available",
     "stop_wait": "The current device finishes flashing before stopping",
     "pause_wait": "The current device finishes flashing before pausing",
-    "last_device_info": "No pause or stop is useful on the last flash"
+    "last_device_info": "No pause or stop is useful on the last flash",
+    "duration": "Duration"
   },
   "report": {
     "summary": "✅ {done} success • ❌ {failed} failed • ⏭ {skipped} skipped",
