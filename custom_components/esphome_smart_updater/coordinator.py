@@ -37,6 +37,7 @@ from .const import (
 
 _LOGGER = logging.getLogger(__name__)
 _THROTTLE_RECHECK_INTERVAL_S = 2
+_DURATION_REFRESH_INTERVAL_S = 60
 
 
 class CampaignManager:
@@ -47,6 +48,7 @@ class CampaignManager:
 
         self._listeners: list[Callable[[], None]] = []
         self._refresh_task: asyncio.Task | None = None
+        self._runtime_task: asyncio.Task | None = None
         self._worker_task: asyncio.Task | None = None
         self._resume_task: asyncio.Task | None = None
         self._started_unsub = None
@@ -104,6 +106,7 @@ class CampaignManager:
         await self._async_restore()
 
         self._refresh_task = self.hass.loop.create_task(self._pending_refresh_loop())
+        self._runtime_task = self.hass.loop.create_task(self._runtime_refresh_loop())
 
         if self.hass.is_running:
             await self._async_handle_post_startup_restore()
@@ -119,11 +122,11 @@ class CampaignManager:
             self._started_unsub()
             self._started_unsub = None
 
-        for task in (self._resume_task, self._worker_task, self._refresh_task):
+        for task in (self._resume_task, self._worker_task, self._refresh_task, self._runtime_task):
             if task is not None:
                 task.cancel()
 
-        for task in (self._resume_task, self._worker_task, self._refresh_task):
+        for task in (self._resume_task, self._worker_task, self._refresh_task, self._runtime_task):
             if task is not None:
                 try:
                     await task
@@ -508,6 +511,37 @@ class CampaignManager:
             raise
         except Exception:
             _LOGGER.exception("Error in pending refresh loop")
+
+
+    async def _runtime_refresh_loop(self) -> None:
+        try:
+            while not self._shutdown:
+                await asyncio.sleep(_DURATION_REFRESH_INTERVAL_S)
+
+                if self.state != "running" or not self.start_ts:
+                    continue
+
+                now_ts = int(time.time())
+                new_duration_s = self._active_elapsed_s(now_ts)
+
+                if new_duration_s == self.duration_s:
+                    continue
+
+                self.duration_s = new_duration_s
+
+                processed = len(self.done) + len(self.failed) + len(self.skipped)
+                if processed > 0:
+                    self.avg_duration_s = round(self.duration_s / processed, 1)
+                    self.eta_s = int(len(self.remaining) * self.avg_duration_s)
+                else:
+                    self.avg_duration_s = 0
+                    self.eta_s = len(self.remaining) * 240 if self.remaining else 0
+
+                self._notify()
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            _LOGGER.exception("Error in runtime refresh loop")
 
     async def _async_refresh_pending_updates(self) -> None:
         registry = er.async_get(self.hass)
