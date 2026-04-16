@@ -625,13 +625,6 @@ class CampaignManager:
                     return
 
                 await self._async_refresh_pending_updates()
-                if current not in self._pending_update_entities:
-                    if current not in self.done:
-                        self.done.append(current)
-                    self.last_processed_entity = current
-                    self.remaining.pop(0)
-                    await self._async_post_item_update()
-                    continue
 
                 self.current = current
                 self.current_update_entity = current
