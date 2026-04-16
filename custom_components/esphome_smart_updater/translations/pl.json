@@ -68,7 +68,8 @@
     "updates_available": "{count} dostępnych aktualizacji",
     "stop_wait": "Bieżące urządzenie zakończy flashowanie przed zatrzymaniem",
     "pause_wait": "Bieżące urządzenie zakończy flashowanie przed wstrzymaniem",
-    "last_device_info": "Pauza ani stop nie mają sensu przy ostatnim flashowaniu"
+    "last_device_info": "Pauza ani stop nie mają sensu przy ostatnim flashowaniu",
+    "duration": "Czas trwania"
   },
   "report": {
     "summary": "✅ {done} udane • ❌ {failed} nieudane • ⏭ {skipped} pominięte",
