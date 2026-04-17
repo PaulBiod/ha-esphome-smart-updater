@@ -37,7 +37,7 @@ from .const import (
 
 _LOGGER = logging.getLogger(__name__)
 _THROTTLE_RECHECK_INTERVAL_S = 2
-_DURATION_REFRESH_INTERVAL_S = 60
+_RUNTIME_REFRESH_INTERVAL_S = 10
 
 
 class CampaignManager:
@@ -48,7 +48,6 @@ class CampaignManager:
 
         self._listeners: list[Callable[[], None]] = []
         self._refresh_task: asyncio.Task | None = None
-        self._runtime_task: asyncio.Task | None = None
         self._worker_task: asyncio.Task | None = None
         self._resume_task: asyncio.Task | None = None
         self._started_unsub = None
@@ -99,6 +98,7 @@ class CampaignManager:
         self.pending_updates_count = 0
         self._pending_update_entities: list[str] = []
         self._translations_cache: dict[str, dict] = {}
+        self._last_duration_refresh_tick = -1
 
     async def async_initialize(self) -> None:
         await self._async_preload_translations()
@@ -106,7 +106,6 @@ class CampaignManager:
         await self._async_restore()
 
         self._refresh_task = self.hass.loop.create_task(self._pending_refresh_loop())
-        self._runtime_task = self.hass.loop.create_task(self._runtime_refresh_loop())
 
         if self.hass.is_running:
             await self._async_handle_post_startup_restore()
@@ -122,11 +121,11 @@ class CampaignManager:
             self._started_unsub()
             self._started_unsub = None
 
-        for task in (self._resume_task, self._worker_task, self._refresh_task, self._runtime_task):
+        for task in (self._resume_task, self._worker_task, self._refresh_task):
             if task is not None:
                 task.cancel()
 
-        for task in (self._resume_task, self._worker_task, self._refresh_task, self._runtime_task):
+        for task in (self._resume_task, self._worker_task, self._refresh_task):
             if task is not None:
                 try:
                     await task
@@ -372,6 +371,7 @@ class CampaignManager:
         self.last_processed_entity = ""
         self.last_report = None
         self.last_report_ts = 0
+        self._last_duration_refresh_tick = -1
 
         await self._async_save()
         self._notify()
@@ -393,6 +393,7 @@ class CampaignManager:
             self.paused_total_s += max(0, now_ts - self.pause_started_ts)
         self.pause_started_ts = 0
         self.duration_s = self._active_elapsed_s(now_ts)
+        self._last_duration_refresh_tick = self.duration_s // _RUNTIME_REFRESH_INTERVAL_S
 
         self.pause_requested = False
         self.stop_requested = False
@@ -468,6 +469,7 @@ class CampaignManager:
         self.last_processed_entity = ""
         self.last_report = None
         self.last_report_ts = 0
+        self._last_duration_refresh_tick = -1
 
         await self._async_save()
         self._notify()
@@ -511,37 +513,6 @@ class CampaignManager:
             raise
         except Exception:
             _LOGGER.exception("Error in pending refresh loop")
-
-
-    async def _runtime_refresh_loop(self) -> None:
-        try:
-            while not self._shutdown:
-                await asyncio.sleep(_DURATION_REFRESH_INTERVAL_S)
-
-                if self.state != "running" or not self.start_ts:
-                    continue
-
-                now_ts = int(time.time())
-                new_duration_s = self._active_elapsed_s(now_ts)
-
-                if new_duration_s == self.duration_s:
-                    continue
-
-                self.duration_s = new_duration_s
-
-                processed = len(self.done) + len(self.failed) + len(self.skipped)
-                if processed > 0:
-                    self.avg_duration_s = round(self.duration_s / processed, 1)
-                    self.eta_s = int(len(self.remaining) * self.avg_duration_s)
-                else:
-                    self.avg_duration_s = 0
-                    self.eta_s = len(self.remaining) * 240 if self.remaining else 0
-
-                self._notify()
-        except asyncio.CancelledError:
-            raise
-        except Exception:
-            _LOGGER.exception("Error in runtime refresh loop")
 
     async def _async_refresh_pending_updates(self) -> None:
         registry = er.async_get(self.hass)
@@ -633,6 +604,7 @@ class CampaignManager:
                 self.total,
             )
 
+        self._last_duration_refresh_tick = self.duration_s // _RUNTIME_REFRESH_INTERVAL_S if self.duration_s >= 0 else -1
         self._notify()
 
     async def _async_reconcile_remaining_with_pending(self) -> None:
@@ -680,6 +652,7 @@ class CampaignManager:
                     self.state = "paused"
                     self.pause_started_ts = int(time.time())
                     self.duration_s = self._active_elapsed_s()
+                    self._last_duration_refresh_tick = self.duration_s // _RUNTIME_REFRESH_INTERVAL_S
                     self.current = ""
                     self.current_update_entity = ""
                     await self._async_save()
@@ -763,6 +736,7 @@ class CampaignManager:
                     self.state = "paused"
                     self.pause_started_ts = int(time.time())
                     self.duration_s = self._active_elapsed_s()
+                    self._last_duration_refresh_tick = self.duration_s // _RUNTIME_REFRESH_INTERVAL_S
                     await self._async_save()
                     self._notify()
                     return
@@ -793,6 +767,7 @@ class CampaignManager:
         await self._async_reconcile_remaining_with_pending()
 
         self.duration_s = self._active_elapsed_s()
+        self._last_duration_refresh_tick = self.duration_s // _RUNTIME_REFRESH_INTERVAL_S
 
         processed = len(self.done) + len(self.failed) + len(self.skipped)
         if processed > 0:
@@ -802,6 +777,29 @@ class CampaignManager:
             self.avg_duration_s = 0
             self.eta_s = len(self.remaining) * 240 if self.remaining else 0
 
+        await self._async_save()
+        self._notify()
+
+    async def _async_maybe_refresh_runtime_clock(self, force: bool = False) -> None:
+        if self.state != "running" or not self.start_ts:
+            return
+
+        new_duration_s = self._active_elapsed_s()
+        new_tick = new_duration_s // _RUNTIME_REFRESH_INTERVAL_S
+
+        if not force and new_tick == self._last_duration_refresh_tick:
+            return
+
+        self.duration_s = new_duration_s
+        processed = len(self.done) + len(self.failed) + len(self.skipped)
+        if processed > 0:
+            self.avg_duration_s = round(self.duration_s / processed, 1)
+            self.eta_s = int(len(self.remaining) * self.avg_duration_s)
+        else:
+            self.avg_duration_s = 0
+            self.eta_s = len(self.remaining) * 240 if self.remaining else 0
+
+        self._last_duration_refresh_tick = new_tick
         await self._async_save()
         self._notify()
 
@@ -834,6 +832,7 @@ class CampaignManager:
                 return
 
             sleep_s = min(_THROTTLE_RECHECK_INTERVAL_S, remaining_wait_s)
+            await self._async_maybe_refresh_runtime_clock()
             await asyncio.sleep(sleep_s)
             elapsed_s += sleep_s
 
@@ -843,6 +842,7 @@ class CampaignManager:
             state = self.hass.states.get(entity_id)
             if state is None or state.state == "off":
                 return True
+            await self._async_maybe_refresh_runtime_clock()
             await asyncio.sleep(2)
 
         state = self.hass.states.get(entity_id)
@@ -1086,6 +1086,7 @@ class CampaignManager:
         result = "stopped" if stopped else ("error" if self.failed else "success")
         self.end_ts = int(time.time())
         self.duration_s = self._active_elapsed_s(self.end_ts)
+        self._last_duration_refresh_tick = self.duration_s // _RUNTIME_REFRESH_INTERVAL_S
         message = self._build_summary_message(stopped=stopped)
 
         await self._send_persistent_notification(
@@ -1162,6 +1163,7 @@ class CampaignManager:
         self.last_processed_entity = ""
         self.last_report = None
         self.last_report_ts = 0
+        self._last_duration_refresh_tick = -1
 
     async def _async_save(self) -> None:
         data = deepcopy(self.campaign_attributes())
