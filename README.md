@@ -749,6 +749,263 @@ cards:
 
 ---
 
+## 🔎 Preview (Dry-Run)
+
+The preview mode lets you simulate the next ESPHome update campaign before launching anything.
+
+It is designed as a **pre-flight snapshot**:
+- see which devices **would be updated**
+- see which devices are **in scope but already up to date**
+- see which devices are **out of scope**
+- see which devices are **not included because of the configured max batch size**
+
+> [!IMPORTANT]
+> Preview is **not live**.
+> It is automatically invalidated when the real world changes:
+> - integration options change
+> - available ESPHome updates change
+> - a campaign starts and devices begin to update  
+>
+> This is intentional: preview is meant to help you decide **before** running a campaign.
+
+### What the preview shows
+
+- **Planned updates** → devices that would be updated now
+- **In scope without update** → selected/included devices that are already up to date
+- **Out of scope** → devices excluded by the current selection mode
+- **Not included** → devices excluded only because the configured `max_items` limit was reached
+
+### Example Lovelace card
+
+```yaml
+type: vertical-stack
+cards:
+  - type: custom:mushroom-title-card
+    title: >
+      {% set t = state_attr('sensor.esphome_smart_updater_campaign','t') or {}
+      %} {{ t.title }} • {{ t.preview }}
+    subtitle: >
+      {% set t = state_attr('sensor.esphome_smart_updater_campaign','t') or {}
+      %} {% set available =
+      state_attr('sensor.esphome_smart_updater_campaign','preview_available') %}
+      {% set count =
+      state_attr('sensor.esphome_smart_updater_campaign','preview_targets_count')
+      | int(0) %} {% if not available %}
+        {{ t.preview_none }}
+      {% elif count == 0 %}
+        ⚠️ {{ t.preview_control_mode }}
+      {% else %}
+        {{ t.preview_devices_count.replace('{count}', count|string) }}
+      {% endif %}
+  - type: custom:mushroom-template-card
+    primary: >
+      {% set t = state_attr('sensor.esphome_smart_updater_campaign','t') or {}
+      %} {{ t.preview_generate }}
+    secondary: >
+      {% set t = state_attr('sensor.esphome_smart_updater_campaign','t') or {}
+      %} {% set ts =
+      state_attr('sensor.esphome_smart_updater_campaign','preview_generated_at')
+      %} {% if ts %}
+        {{ t.preview_last_generation.replace('{date}', as_datetime(ts).strftime('%d/%m/%Y %H:%M:%S')) }}
+      {% else %}
+        {{ t.preview_none_available }}
+      {% endif %}
+    icon: mdi:refresh
+    icon_color: blue
+    tap_action:
+      action: call-service
+      service: esphome_smart_updater.preview_campaign
+  - type: markdown
+    content: >
+      {% set t = state_attr('sensor.esphome_smart_updater_campaign','t') or {}
+      %} _{{ t.preview_hint }}_
+  - type: conditional
+    conditions:
+      - condition: state
+        entity: binary_sensor.esphome_smart_updater_preview_available
+        state: "on"
+    card:
+      type: vertical-stack
+      cards:
+        - type: markdown
+          content: >
+            {% set t = state_attr('sensor.esphome_smart_updater_campaign','t')
+            or {} %} {% set mode =
+            state_attr('sensor.esphome_smart_updater_campaign','preview_mode_display_text')
+            %} {% set mode_help =
+            state_attr('sensor.esphome_smart_updater_campaign','mode_help_text')
+            %} {% set max_items =
+            state_attr('sensor.esphome_smart_updater_campaign','preview_max_items')
+            | int(50) %}
+
+            **{{ t.mode_label }} :** {{ mode or '-' }}
+
+            <font color="#AAAAAA">{{ mode_help or '' }}</font>
+
+            <br> <sub>* {{ t.preview_not_included_with_limit.replace('{max}',
+            max_items|string) }}</sub>
+        - type: grid
+          columns: 2
+          square: false
+          cards:
+            - type: custom:mushroom-template-card
+              primary: >
+                {% set t =
+                state_attr('sensor.esphome_smart_updater_campaign','t') or {} %}
+                {{ t.preview_updates_planned }}
+              secondary: >
+                {{
+                state_attr('sensor.esphome_smart_updater_campaign','preview_targets_count')
+                | int(0) }}
+              icon: mdi:update
+              icon_color: green
+            - type: custom:mushroom-template-card
+              primary: >
+                {% set t =
+                state_attr('sensor.esphome_smart_updater_campaign','t') or {} %}
+                {{ t.preview_in_scope_no_update }}
+              secondary: >
+                {{
+                state_attr('sensor.esphome_smart_updater_campaign','preview_in_scope_no_update_count')
+                | int(0) }}
+              icon: mdi:progress-clock
+              icon_color: yellow
+            - type: custom:mushroom-template-card
+              primary: >
+                {% set t =
+                state_attr('sensor.esphome_smart_updater_campaign','t') or {} %}
+                {{ t.preview_out_of_scope }}
+              secondary: >
+                {{
+                state_attr('sensor.esphome_smart_updater_campaign','preview_out_of_scope_count')
+                | int(0) }}
+              icon: mdi:filter-variant
+              icon_color: blue
+            - type: custom:mushroom-template-card
+              primary: >
+                {% set t =
+                state_attr('sensor.esphome_smart_updater_campaign','t') or {} %}
+                {{ t.preview_not_included }} *
+              secondary: >
+                {{
+                state_attr('sensor.esphome_smart_updater_campaign','preview_overflow_count')
+                | int(0) }}
+              icon: mdi:playlist-remove
+              icon_color: red
+        - type: markdown
+          content: >-
+            {% set t = state_attr('sensor.esphome_smart_updater_campaign','t')
+            or {} %}
+
+            {% set targets =
+            state_attr('sensor.esphome_smart_updater_campaign','preview_targets')
+            or [] %}
+
+
+            ### 🟢 {{ t.preview_targets_title }}
+
+
+            {% if targets | count == 0 %}
+
+            {{ t.none }}
+
+            {% else %}
+
+            {% for item in targets %}
+
+            • {{ item.name if item.name is defined else item.entity_id if
+            item.entity_id is defined else item }}
+
+            {% if item.installed_version is defined and item.latest_version is
+            defined and item.installed_version and item.latest_version %}
+
+            <br><font color="#AAAAAA">{{ item.installed_version }} → {{
+            item.latest_version }}</font>
+
+            {% endif %}
+
+
+            {% endfor %}
+
+            {% endif %}
+        - type: markdown
+          content: >-
+            {% set t = state_attr('sensor.esphome_smart_updater_campaign','t')
+            or {} %}
+
+            {% set no_update_list =
+            state_attr('sensor.esphome_smart_updater_campaign','preview_in_scope_no_update')
+            or [] %}
+
+
+            ### 🟡 {{ t.preview_in_scope_no_update_title }}
+
+
+            {% if no_update_list | count == 0 %}
+
+            {{ t.none }}
+
+            {% else %}
+
+            {% for item in no_update_list %}
+
+            • {{ item.name if item.name is defined else item.entity_id if
+            item.entity_id is defined else item }}
+
+
+            {% endfor %}
+
+            {% endif %}
+        - type: markdown
+          content: >-
+            {% set t = state_attr('sensor.esphome_smart_updater_campaign','t')
+            or {} %}
+
+            {% set out_list =
+            state_attr('sensor.esphome_smart_updater_campaign','preview_out_of_scope')
+            or [] %}
+
+
+            ### 🔵 {{ t.preview_out_of_scope_expand }}
+
+
+            {% if out_list | count == 0 %}
+
+            {{ t.none }}
+
+            {% else %}
+
+            <details><summary><b>{{ t.preview_out_of_scope_expand
+            }}</b></summary>
+
+
+            {% for item in out_list %}
+
+            • {{ item.name if item.name is defined else item.entity_id if
+            item.entity_id is defined else item }}
+
+
+            {% endfor %}
+
+            </details>
+
+            {% endif %}
+
+```
+
+### Full example
+
+See the complete preview card example here:
+
+- [`examples/card.yaml`](./examples/card_preview.yaml)
+
+
+### Notes
+
+- The preview only reflects the state **at the moment it was generated**
+- If something changes, generate it again
+- This makes the preview reliable as a decision tool, instead of showing stale information
+
 ## 💡 Example Use Case
 
 👉 You have 20+ ESPHome devices
