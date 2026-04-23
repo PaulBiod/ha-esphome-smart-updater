@@ -749,6 +749,30 @@ cards:
 
 ---
 
+## 💡 Example Use Case
+
+👉 You have 20+ ESPHome devices
+👉 Multiple updates available
+
+Instead of updating manually:
+
+* launch campaign
+* monitor progress
+* receive full report
+
+---
+
+## ⚠️ Notes
+
+* Requires Home Assistant restart after install/update
+* After restart, you must add the integration from
+  **Settings → Devices & Services**
+* Designed for local ESPHome OTA management
+
+---
+
+
+
 ## 🔎 Preview (Dry-Run)
 
 The preview mode lets you simulate the next ESPHome update campaign before launching anything.
@@ -1012,27 +1036,7 @@ See the complete preview card example here:
 - If something changes, generate it again
 - This makes the preview reliable as a decision tool, instead of showing stale information
 
-## 💡 Example Use Case
 
-👉 You have 20+ ESPHome devices
-👉 Multiple updates available
-
-Instead of updating manually:
-
-* launch campaign
-* monitor progress
-* receive full report
-
----
-
-## ⚠️ Notes
-
-* Requires Home Assistant restart after install/update
-* After restart, you must add the integration from
-  **Settings → Devices & Services**
-* Designed for local ESPHome OTA management
-
----
 
 ## ❤️ Support
 
