@@ -775,9 +775,9 @@ It is designed as a **pre-flight snapshot**:
 - **Out of scope** → devices excluded by the current selection mode
 - **Not included** → devices excluded only because the configured `max_items` limit was reached
 
-### Example Lovelace card
+### Example Lovelace Preview card
 <details>
-<summary><strong>Show card preview YAML</strong></summary>
+<summary><strong>Show  preview card YAML</strong></summary>
 
 ```yaml
 type: vertical-stack
