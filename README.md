@@ -776,6 +776,8 @@ It is designed as a **pre-flight snapshot**:
 - **Not included** → devices excluded only because the configured `max_items` limit was reached
 
 ### Example Lovelace card
+<details>
+<summary><strong>Show card preview YAML</strong></summary>
 
 ```yaml
 type: vertical-stack
@@ -992,6 +994,10 @@ cards:
             {% endif %}
 
 ```
+
+</details>
+
+---
 
 ### Full example
 
