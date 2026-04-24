@@ -121,15 +121,21 @@ cards:
             state_attr('sensor.esphome_smart_updater_campaign','preview_targets')
             or [] %}
 
+            {% set count = targets | count %}
 
-            ### 🟢 {{ t.preview_targets_title }}
+
+            ### 🟢 {{ t.preview_targets_title }} <font color="#00E676">({{ count
+            }})</font>
 
 
-            {% if targets | count == 0 %}
+            {% if count == 0 %}
 
             {{ t.none }}
 
             {% else %}
+
+            <details><summary><b>{{ t.click_to_expand }}</b></summary>
+
 
             {% for item in targets %}
 
@@ -147,6 +153,8 @@ cards:
 
             {% endfor %}
 
+            </details>
+
             {% endif %}
         - type: markdown
           content: >-
@@ -157,15 +165,21 @@ cards:
             state_attr('sensor.esphome_smart_updater_campaign','preview_in_scope_no_update')
             or [] %}
 
+            {% set count = no_update_list | count %}
 
-            ### 🟡 {{ t.preview_in_scope_no_update_title }}
+
+            ### 🟡 {{ t.preview_in_scope_no_update_title }} <font
+            color="#FFD600">({{ count }})</font>
 
 
-            {% if no_update_list | count == 0 %}
+            {% if count == 0 %}
 
             {{ t.none }}
 
             {% else %}
+
+            <details><summary><b>{{ t.click_to_expand }}</b></summary>
+
 
             {% for item in no_update_list %}
 
@@ -174,6 +188,8 @@ cards:
 
 
             {% endfor %}
+
+            </details>
 
             {% endif %}
         - type: markdown
@@ -185,18 +201,20 @@ cards:
             state_attr('sensor.esphome_smart_updater_campaign','preview_out_of_scope')
             or [] %}
 
+            {% set count = out_list | count %}
 
-            ### 🔵 {{ t.preview_out_of_scope_expand }}
+
+            ### 🔵 {{ t.preview_out_of_scope_expand }} <font color="#2196F3">({{
+            count }})</font>
 
 
-            {% if out_list | count == 0 %}
+            {% if count == 0 %}
 
             {{ t.none }}
 
             {% else %}
 
-            <details><summary><b>{{ t.preview_out_of_scope_expand
-            }}</b></summary>
+            <details><summary><b>{{ t.click_to_expand }}</b></summary>
 
 
             {% for item in out_list %}
@@ -204,6 +222,34 @@ cards:
             • {{ item.name if item.name is defined else item.entity_id if
             item.entity_id is defined else item }}
 
+
+            {% endfor %}
+
+            </details>
+
+            {% endif %}
+        - type: markdown
+          content: >-
+            {% set t = state_attr('sensor.esphome_smart_updater_campaign','t')
+            or {} %} {% set unavailable_list =
+            state_attr('sensor.esphome_smart_updater_campaign','preview_unavailable')
+            or [] %} {% set count = unavailable_list | count %}
+
+            ### ⚫ {{ t.preview_unavailable_title }} <font color="#9E9E9E">({{
+            count }})</font>
+
+            {% if count == 0 %}
+
+            {{ t.none }}
+
+            {% else %}
+
+            <details><summary><b>{{ t.click_to_expand }}</b></summary>
+
+            {% for item in unavailable_list %}
+
+            • {{ item.name if item.name is defined else item.entity_id if
+            item.entity_id is defined else item }}
 
             {% endfor %}
 
