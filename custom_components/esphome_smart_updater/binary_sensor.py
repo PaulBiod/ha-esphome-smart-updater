@@ -10,9 +10,13 @@ from .const import (
     BINARY_SENSOR_LAST_DEVICE_RUNNING_UNIQUE_ID,
     BINARY_SENSOR_PAUSE_INFO_VISIBLE_UNIQUE_ID,
     BINARY_SENSOR_PAUSE_REQUESTED_UNIQUE_ID,
+    BINARY_SENSOR_PREVIEW_AVAILABLE_UNIQUE_ID,
     BINARY_SENSOR_REPORT_AVAILABLE_UNIQUE_ID,
     BINARY_SENSOR_STOP_REQUESTED_UNIQUE_ID,
     BINARY_SENSOR_THROTTLE_ENABLED_UNIQUE_ID,
+    BINARY_SENSOR_CPU_METRIC_VISIBLE_UNIQUE_ID,
+    BINARY_SENSOR_TEMP_METRIC_VISIBLE_UNIQUE_ID,
+    BINARY_SENSOR_LOAD_METRIC_VISIBLE_UNIQUE_ID,
     DOMAIN,
 )
 
@@ -32,6 +36,10 @@ async def async_setup_entry(
             ESULastDeviceRunningBinarySensor(manager),
             ESUPauseInfoVisibleBinarySensor(manager),
             ESUCurrentErrorVisibleBinarySensor(manager),
+            ESUPreviewAvailableBinarySensor(manager),
+            ESUCpuMetricVisibleBinarySensor(manager),
+            ESUTempMetricVisibleBinarySensor(manager),
+            ESULoadMetricVisibleBinarySensor(manager),
         ]
     )
 
@@ -147,3 +155,45 @@ class ESUCurrentErrorVisibleBinarySensor(_BaseESUBinarySensor):
         recent_errors = getattr(self.manager, "recent_errors", None) or []
         return any(str(item or "").strip() for item in recent_errors)
 
+class ESUPreviewAvailableBinarySensor(_BaseESUBinarySensor):
+    _attr_name = "ESPHome Smart Updater Preview Available"
+    _attr_unique_id = BINARY_SENSOR_PREVIEW_AVAILABLE_UNIQUE_ID
+    _attr_icon = "mdi:file-search-outline"
+
+    @property
+    def is_on(self):
+        if hasattr(self.manager, "_get_valid_preview"):
+            return bool(self.manager._get_valid_preview())
+        preview = getattr(self.manager, "last_preview", None)
+        return bool(preview)
+
+
+
+class ESUCpuMetricVisibleBinarySensor(_BaseESUBinarySensor):
+    _attr_name = "ESPHome Smart Updater CPU Metric Visible"
+    _attr_unique_id = BINARY_SENSOR_CPU_METRIC_VISIBLE_UNIQUE_ID
+    _attr_icon = "mdi:cpu-64-bit"
+
+    @property
+    def is_on(self):
+        return bool(getattr(self.manager, "cpu_source_entity_id", ""))
+
+
+class ESUTempMetricVisibleBinarySensor(_BaseESUBinarySensor):
+    _attr_name = "ESPHome Smart Updater Temp Metric Visible"
+    _attr_unique_id = BINARY_SENSOR_TEMP_METRIC_VISIBLE_UNIQUE_ID
+    _attr_icon = "mdi:thermometer"
+
+    @property
+    def is_on(self):
+        return bool(getattr(self.manager, "temp_source_entity_id", ""))
+
+
+class ESULoadMetricVisibleBinarySensor(_BaseESUBinarySensor):
+    _attr_name = "ESPHome Smart Updater Load Metric Visible"
+    _attr_unique_id = BINARY_SENSOR_LOAD_METRIC_VISIBLE_UNIQUE_ID
+    _attr_icon = "mdi:gauge"
+
+    @property
+    def is_on(self):
+        return bool(getattr(self.manager, "load_source_entity_id", ""))

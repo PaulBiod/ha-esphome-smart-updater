@@ -71,10 +71,12 @@ class ESPHomeSmartUpdaterPendingUpdatesSensor(_BaseESUSensor):
     @property
     def extra_state_attributes(self):
         entities = self.manager.pending_updates_entities()
-        return {
+        attrs = {
             "pending_updates": entities,
             "total": len(entities),
         }
+        attrs.update(self.manager._selection_attributes(entities))
+        return attrs
 
 
 class ESPHomeSmartUpdaterProgressSensor(_BaseESUSensor):

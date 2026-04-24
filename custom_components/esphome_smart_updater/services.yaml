@@ -17,3 +17,17 @@ stop_campaign:
 clear_report:
   name: Clear report
   description: Clear the last stored campaign report and purge the stored campaign lists.
+
+preview_campaign:
+  name: Preview campaign
+  description: Generate a preview of the next update campaign without executing it.
+  fields:
+    entity_ids:
+      name: Entities
+      description: Optional list of update entities to preview.
+      required: false
+      example:
+        - update.device1_firmware
+        - update.device2_firmware
+      selector:
+        object:

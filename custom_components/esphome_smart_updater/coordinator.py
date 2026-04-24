@@ -11,6 +11,7 @@ import time
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import EVENT_HOMEASSISTANT_STARTED
 from homeassistant.core import Event, HomeAssistant, callback
+from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.storage import Store
 
@@ -18,15 +19,21 @@ from .const import (
     CONF_CPU_SENSOR,
     CONF_DELAY_MAX,
     CONF_DELAY_MIN,
+    CONF_DEVICE_SELECTION_MODE,
+    CONF_EXCLUDED_UPDATE_ENTITIES,
     CONF_LOAD_SENSOR,
     CONF_MAX_ITEMS,
     CONF_RESTORE_RESUME_DELAY,
+    CONF_SELECTED_UPDATE_ENTITIES,
     CONF_TEMP_SENSOR,
     CONF_THROTTLE,
     CONF_TIMEOUT,
     DEFAULT_DELAY_MAX,
     DEFAULT_DELAY_MIN,
     DEFAULT_MAX_ITEMS,
+    DEVICE_SELECTION_ALL,
+    DEVICE_SELECTION_EXCLUDE,
+    DEVICE_SELECTION_SELECTED,
     DEFAULT_REFRESH_INTERVAL,
     DEFAULT_RESTORE_RESUME_DELAY,
     DEFAULT_TIMEOUT,
@@ -38,6 +45,7 @@ from .const import (
 _LOGGER = logging.getLogger(__name__)
 _THROTTLE_RECHECK_INTERVAL_S = 2
 _RUNTIME_REFRESH_INTERVAL_S = 10
+_METRICS_REFRESH_INTERVAL_S = 3
 
 
 class CampaignManager:
@@ -49,6 +57,7 @@ class CampaignManager:
         self._listeners: list[Callable[[], None]] = []
         self._refresh_task: asyncio.Task | None = None
         self._worker_task: asyncio.Task | None = None
+        self._metrics_task: asyncio.Task | None = None
         self._resume_task: asyncio.Task | None = None
         self._started_unsub = None
         self._shutdown = False
@@ -97,6 +106,8 @@ class CampaignManager:
 
         self.pending_updates_count = 0
         self._pending_update_entities: list[str] = []
+        self.last_preview: dict | None = None
+        self.last_preview_ts = 0
         self._translations_cache: dict[str, dict] = {}
         self._last_duration_refresh_tick = -1
 
@@ -121,11 +132,11 @@ class CampaignManager:
             self._started_unsub()
             self._started_unsub = None
 
-        for task in (self._resume_task, self._worker_task, self._refresh_task):
+        for task in (self._resume_task, self._worker_task, self._metrics_task, self._refresh_task):
             if task is not None:
                 task.cancel()
 
-        for task in (self._resume_task, self._worker_task, self._refresh_task):
+        for task in (self._resume_task, self._worker_task, self._metrics_task, self._refresh_task):
             if task is not None:
                 try:
                     await task
@@ -150,7 +161,216 @@ class CampaignManager:
     def pending_updates_entities(self) -> list[str]:
         return list(self._pending_update_entities)
 
+    def _get_all_esphome_update_entities_inventory(self) -> list[str]:
+        registry = er.async_get(self.hass)
+        result: list[str] = []
+
+        for entity_id in self.hass.states.async_entity_ids("update"):
+            reg_entry = registry.async_get(entity_id)
+            if reg_entry is None:
+                continue
+            if reg_entry.platform == "esphome":
+                result.append(entity_id)
+
+        result.sort()
+        return result
+
+    def _resolve_entity_scope(self, entity_ids: list[str]) -> list[str]:
+        mode = self.entry.options.get(CONF_DEVICE_SELECTION_MODE, DEVICE_SELECTION_ALL)
+        selected = set(self.entry.options.get(CONF_SELECTED_UPDATE_ENTITIES, []) or [])
+        excluded = set(self.entry.options.get(CONF_EXCLUDED_UPDATE_ENTITIES, []) or [])
+
+        if mode == DEVICE_SELECTION_SELECTED:
+            return [entity_id for entity_id in entity_ids if entity_id in selected]
+
+        if mode == DEVICE_SELECTION_EXCLUDE:
+            return [entity_id for entity_id in entity_ids if entity_id not in excluded]
+
+        return list(entity_ids)
+
+    def _preview_entity_payload(self, entity_id: str) -> dict[str, str]:
+        return {
+            "entity_id": entity_id,
+            "name": self._device_display_name(entity_id),
+        }
+
+    def _build_campaign_plan(self, entity_ids: list[str] | None = None) -> dict:
+        mode = self.entry.options.get(CONF_DEVICE_SELECTION_MODE, DEVICE_SELECTION_ALL)
+        selected = [
+            entity_id
+            for entity_id in (self.entry.options.get(CONF_SELECTED_UPDATE_ENTITIES, []) or [])
+            if self.hass.states.get(entity_id) is not None
+        ]
+        excluded = [
+            entity_id
+            for entity_id in (self.entry.options.get(CONF_EXCLUDED_UPDATE_ENTITIES, []) or [])
+            if self.hass.states.get(entity_id) is not None
+        ]
+
+        inventory = (
+            [entity_id for entity_id in entity_ids if self.hass.states.get(entity_id) is not None]
+            if entity_ids is not None
+            else self._get_all_esphome_update_entities_inventory()
+        )
+        inventory = [entity_id for entity_id in inventory if entity_id.startswith("update.")]
+        scoped_entities = (
+            list(inventory) if entity_ids is not None else self._resolve_entity_scope(inventory)
+        )
+
+        pending_in_scope = []
+        in_scope_no_update = []
+        unavailable_in_scope = []
+
+        for entity_id in scoped_entities:
+            state = self.hass.states.get(entity_id)
+            if state is None or state.state in ("unavailable", "unknown"):
+                unavailable_in_scope.append(entity_id)
+                continue
+            if state.state == "on":
+                pending_in_scope.append(entity_id)
+            else:
+                in_scope_no_update.append(entity_id)
+
+        max_items = int(
+            self.entry.options.get(CONF_MAX_ITEMS, DEFAULT_MAX_ITEMS) or DEFAULT_MAX_ITEMS
+        )
+        targets = pending_in_scope[:max_items]
+        overflow = pending_in_scope[max_items:]
+        out_of_scope = [entity_id for entity_id in inventory if entity_id not in scoped_entities]
+
+        mode_display = self._get_mode_display_text(mode, len(selected), len(excluded))
+        lines = [
+            self._default_by_language("Aperçu de campagne", "Campaign preview"),
+            f"{self._tr('ui.mode_label', 'Mode')}: {mode_display}",
+            self._default_by_language(
+                "{count} mise(s) à jour seraient lancées",
+                "{count} update(s) would be launched",
+            ).format(count=len(targets)),
+        ]
+
+        if overflow:
+            lines.append(
+                self._default_by_language(
+                    "{count} mise(s) à jour supplémentaires sont en attente mais hors limite max_items",
+                    "{count} additional update(s) are pending but exceed max_items",
+                ).format(count=len(overflow))
+            )
+
+        preview_report = "\n".join(lines)
+
+        return {
+            "mode": mode,
+            "mode_display_text": mode_display,
+            "selected_count": len(selected),
+            "excluded_count": len(excluded),
+            "max_items": max_items,
+            "inventory": [self._preview_entity_payload(entity_id) for entity_id in inventory],
+            "inventory_count": len(inventory),
+            "targets": [self._preview_entity_payload(entity_id) for entity_id in targets],
+            "targets_count": len(targets),
+            "pending_in_scope_count": len(pending_in_scope),
+            "in_scope_no_update": [self._preview_entity_payload(entity_id) for entity_id in in_scope_no_update],
+            "in_scope_no_update_count": len(in_scope_no_update),
+            "unavailable": [self._preview_entity_payload(entity_id) for entity_id in unavailable_in_scope],
+            "unavailable_count": len(unavailable_in_scope),
+            "out_of_scope": [self._preview_entity_payload(entity_id) for entity_id in out_of_scope],
+            "out_of_scope_count": len(out_of_scope),
+            "overflow": [self._preview_entity_payload(entity_id) for entity_id in overflow],
+            "overflow_count": len(overflow),
+            "generated_at": int(time.time()),
+            "config_signature": self._preview_config_signature(),
+            "data_signature": self._preview_data_signature(),
+            "report": preview_report,
+        }
+
+    async def async_preview(self, entity_ids: list[str] | None = None) -> dict:
+        plan = self._build_campaign_plan(entity_ids=entity_ids)
+        self.last_preview = plan
+        self.last_preview_ts = int(time.time())
+        await self._async_save()
+        self._notify()
+        return plan
+
+    def _get_all_esphome_update_entities(self) -> list[str]:
+        registry = er.async_get(self.hass)
+        result: list[str] = []
+
+        for entity_id in self.hass.states.async_entity_ids("update"):
+            state = self.hass.states.get(entity_id)
+            if state is None or state.state != "on":
+                continue
+
+            reg_entry = registry.async_get(entity_id)
+            if reg_entry is None:
+                continue
+
+            if reg_entry.platform == "esphome":
+                result.append(entity_id)
+
+        result.sort()
+        return result
+
+    def _resolve_pending_update_scope(self, all_updates: list[str]) -> list[str]:
+        mode = self.entry.options.get(CONF_DEVICE_SELECTION_MODE, DEVICE_SELECTION_ALL)
+        selected = set(self.entry.options.get(CONF_SELECTED_UPDATE_ENTITIES, []) or [])
+        excluded = set(self.entry.options.get(CONF_EXCLUDED_UPDATE_ENTITIES, []) or [])
+
+        if mode == DEVICE_SELECTION_SELECTED:
+            return [entity_id for entity_id in all_updates if entity_id in selected]
+
+        if mode == DEVICE_SELECTION_EXCLUDE:
+            return [entity_id for entity_id in all_updates if entity_id not in excluded]
+
+        return list(all_updates)
+
+    def _get_unavailable_update_entities_in_scope(self) -> list[str]:
+        inventory = self._get_all_esphome_update_entities_inventory()
+        scoped_entities = self._resolve_entity_scope(inventory)
+        result: list[str] = []
+
+        for entity_id in scoped_entities:
+            state = self.hass.states.get(entity_id)
+            if state is None or state.state in ("unavailable", "unknown"):
+                result.append(entity_id)
+
+        result.sort()
+        return result
+
+    def _selection_attributes(self, scoped_updates: list[str] | None = None) -> dict:
+        all_updates = self._get_all_esphome_update_entities()
+        scope_updates = list(scoped_updates) if scoped_updates is not None else self._resolve_pending_update_scope(all_updates)
+        unavailable_entities = self._get_unavailable_update_entities_in_scope()
+        mode = self.entry.options.get(CONF_DEVICE_SELECTION_MODE, DEVICE_SELECTION_ALL)
+        selected = [
+            entity_id
+            for entity_id in (self.entry.options.get(CONF_SELECTED_UPDATE_ENTITIES, []) or [])
+            if self.hass.states.get(entity_id) is not None
+        ]
+        excluded = [
+            entity_id
+            for entity_id in (self.entry.options.get(CONF_EXCLUDED_UPDATE_ENTITIES, []) or [])
+            if self.hass.states.get(entity_id) is not None
+        ]
+        return {
+            "selection_mode": mode,
+            "selected_entities": selected,
+            "selected_count": len(selected),
+            "excluded_entities": excluded,
+            "excluded_count": len(excluded),
+            "pending_updates_in_scope": len(scope_updates),
+            "effective_updates_count": len(scope_updates),
+            "pending_updates_total": len(all_updates),
+            "pending_updates_out_of_scope": max(0, len(all_updates) - len(scope_updates)),
+            "all_pending_updates": list(all_updates),
+            "unavailable_entities": list(unavailable_entities),
+            "unavailable_count": len(unavailable_entities),
+            "mode_label": self._tr("ui.mode_label", "Mode"),
+            "mode_display_text": self._get_mode_display_text(mode, len(selected), len(excluded)),
+            "mode_help_text": self._get_mode_help_text(mode),
+        }
+
     def campaign_attributes(self) -> dict:
+        current_preview = self._get_valid_preview()
         return {
             "queue": list(self.queue),
             "remaining": list(self.remaining),
@@ -160,6 +380,10 @@ class CampaignManager:
             "skipped": list(self.skipped),
             "current": self.current,
             "current_update_entity": self.current_update_entity,
+            "current_device_display_name": self._device_display_name(self.current_update_entity),
+            "next_1_display_name": self._device_display_name(self.remaining[1]) if len(self.remaining) > 1 else "-",
+            "next_2_display_name": self._device_display_name(self.remaining[2]) if len(self.remaining) > 2 else "-",
+            "next_3_display_name": self._device_display_name(self.remaining[3]) if len(self.remaining) > 3 else "-",
             "total": self.total,
             "index": self.index,
             "start_ts": self.start_ts or "",
@@ -186,9 +410,27 @@ class CampaignManager:
             "last_report": self.last_report,
             "last_report_ts": self.last_report_ts,
             "report_available": self.report_available,
+            "preview_available": bool(current_preview),
+            "preview_generated_at": self.last_preview_ts or "" if current_preview else "",
+            "preview_mode": (current_preview or {}).get("mode", ""),
+            "preview_mode_display_text": (current_preview or {}).get("mode_display_text", ""),
+            "preview_targets": list((current_preview or {}).get("targets", [])),
+            "preview_targets_count": int((current_preview or {}).get("targets_count", 0)),
+            "preview_pending_in_scope_count": int((current_preview or {}).get("pending_in_scope_count", 0)),
+            "preview_in_scope_no_update": list((current_preview or {}).get("in_scope_no_update", [])),
+            "preview_in_scope_no_update_count": int((current_preview or {}).get("in_scope_no_update_count", 0)),
+            "preview_unavailable": list((current_preview or {}).get("unavailable", [])),
+            "preview_unavailable_count": int((current_preview or {}).get("unavailable_count", 0)),
+            "preview_out_of_scope": list((current_preview or {}).get("out_of_scope", [])),
+            "preview_out_of_scope_count": int((current_preview or {}).get("out_of_scope_count", 0)),
+            "preview_overflow": list((current_preview or {}).get("overflow", [])),
+            "preview_overflow_count": int((current_preview or {}).get("overflow_count", 0)),
+            "preview_max_items": int((current_preview or {}).get("max_items", 0)),
+            "preview_report": (current_preview or {}).get("report", ""),
             "throttle_enabled": self.throttle_enabled,
             "no_update_text": self._get_no_update_text(),
             "t": self._get_ui_translations(),
+            **self._selection_attributes(self._pending_update_entities),
         }
 
     @property
@@ -197,7 +439,62 @@ class CampaignManager:
 
     @property
     def throttle_enabled(self) -> bool:
-        return bool(self.entry.options.get(CONF_THROTTLE, False))
+        if not self.entry.options.get(CONF_THROTTLE, False):
+            return False
+
+        return any(
+            bool(self.entry.options.get(option_key))
+            for option_key in (CONF_CPU_SENSOR, CONF_TEMP_SENSOR, CONF_LOAD_SENSOR)
+        )
+
+
+    def _preview_config_signature(self) -> dict:
+        return {
+            "device_selection_mode": self.entry.options.get(CONF_DEVICE_SELECTION_MODE, DEVICE_SELECTION_ALL),
+            "selected_update_entities": sorted(self.entry.options.get(CONF_SELECTED_UPDATE_ENTITIES, []) or []),
+            "excluded_update_entities": sorted(self.entry.options.get(CONF_EXCLUDED_UPDATE_ENTITIES, []) or []),
+            "max_items": int(self.entry.options.get(CONF_MAX_ITEMS, DEFAULT_MAX_ITEMS) or DEFAULT_MAX_ITEMS),
+        }
+
+    def _preview_data_signature(self) -> list[dict]:
+        registry = er.async_get(self.hass)
+        result: list[dict] = []
+
+        for entity_id in sorted(self.hass.states.async_entity_ids("update")):
+            reg_entry = registry.async_get(entity_id)
+            if reg_entry is None or reg_entry.platform != "esphome":
+                continue
+
+            state = self.hass.states.get(entity_id)
+            if state is None:
+                continue
+
+            result.append(
+                {
+                    "entity_id": entity_id,
+                    "state": state.state,
+                    "installed_version": state.attributes.get("installed_version"),
+                    "latest_version": state.attributes.get("latest_version"),
+                }
+            )
+
+        return result
+
+    def _clear_preview(self) -> None:
+        self.last_preview = None
+        self.last_preview_ts = 0
+
+    def _is_preview_valid(self, preview: dict | None = None) -> bool:
+        current = preview if preview is not None else self.last_preview
+        if not current:
+            return False
+        return (
+            current.get("config_signature") == self._preview_config_signature()
+            and current.get("data_signature") == self._preview_data_signature()
+        )
+
+    def _get_valid_preview(self) -> dict | None:
+        return self.last_preview if self._is_preview_valid(self.last_preview) else None
 
     def _get_language_candidates(self) -> list[str]:
         language = None
@@ -270,6 +567,10 @@ class CampaignManager:
                 return value
         return None
 
+    def _default_by_language(self, fr_text: str, en_text: str) -> str:
+        primary = (self._get_language_candidates() or ["en"])[0].lower()
+        return fr_text if primary.startswith("fr") else en_text
+
     def _tr(self, key_path: str, default: str, **kwargs) -> str:
         text = self._load_translation_text(key_path) or default
         if kwargs:
@@ -291,6 +592,7 @@ class CampaignManager:
             "eta": self._tr("ui.eta", "ETA"),
             "duration": self._tr("ui.duration", "Duration"),
             "delay": self._tr("ui.delay", "Dynamic delay"),
+            "delay_fixed": self._tr("ui.delay_fixed", "Fixed delay"),
             "server_load": self._tr("ui.server_load", "Server load"),
             "cpu": self._tr("ui.cpu", "CPU"),
             "cpu_temp": self._tr("ui.cpu_temp", "CPU Temp"),
@@ -319,7 +621,63 @@ class CampaignManager:
             "stop_wait": self._tr("ui.stop_wait", "The current device finishes flashing before stopping"),
             "pause_wait": self._tr("ui.pause_wait", "The current device finishes flashing before pausing"),
             "last_device_info": self._tr("ui.last_device_info", "No pause or stop is useful on the last flash"),
+            "mode_label": self._tr("ui.mode_label", "Mode"),
+            "preview": self._tr("ui.preview", "Preview"),
+            "preview_none": self._tr("ui.preview_none", "No preview generated"),
+            "preview_control_mode": self._tr("ui.preview_control_mode", "This is a control mode - no update will be launched"),
+            "preview_devices_count": self._tr("ui.preview_devices_count", "{count} device(s) will be updated"),
+            "preview_generate": self._tr("ui.preview_generate", "Generate preview"),
+            "preview_last_generation": self._tr("ui.preview_last_generation", "Last generation: {date}"),
+            "preview_none_available": self._tr("ui.preview_none_available", "No preview available"),
+            "preview_hint": self._tr("ui.preview_hint", "Click Generate preview to calculate the next campaign."),
+            "click_to_expand": self._tr("ui.click_to_expand", "Click to expand"),
+            "preview_updates_planned": self._tr("ui.preview_updates_planned", "Planned updates"),
+            "preview_in_scope_no_update": self._tr("ui.preview_in_scope_no_update", "In scope without update"),
+            "preview_out_of_scope": self._tr("ui.preview_out_of_scope", "Out of scope"),
+            "preview_not_included": self._tr("ui.preview_not_included", "Not included"),
+            "preview_not_included_with_limit": self._tr("ui.preview_not_included_with_limit", "Not included (max {max} in config)"),
+            "preview_targets_title": self._tr("ui.preview_targets_title", "Devices that will be updated"),
+            "preview_in_scope_no_update_title": self._tr("ui.preview_in_scope_no_update_title", "In scope but without update"),
+            "preview_unavailable": self._tr("ui.preview_unavailable", "Unavailable"),
+            "preview_unavailable_title": self._tr("ui.preview_unavailable_title", "Unavailable / update status unknown"),
+            "preview_out_of_scope_expand": self._tr("ui.preview_out_of_scope_expand", "Out of scope (click to expand)"),
+            "none": self._tr("ui.none", "None"),
         }
+
+    def _get_mode_display_text(self, mode: str, selected_count: int, excluded_count: int) -> str:
+        if mode == DEVICE_SELECTION_SELECTED:
+            return self._tr(
+                "ui.mode_selected_devices_count",
+                "{count} selected devices",
+                count=selected_count,
+            )
+
+        if mode == DEVICE_SELECTION_EXCLUDE:
+            return self._tr(
+                "ui.mode_excluded_devices_count",
+                "All except {count} devices",
+                count=excluded_count,
+            )
+
+        return self._tr("ui.mode_all_devices", "All devices")
+
+    def _get_mode_help_text(self, mode: str) -> str:
+        if mode == DEVICE_SELECTION_SELECTED:
+            return self._tr(
+                "ui.mode_help_selected_devices",
+                "Only the selected devices will be updated. Change this mode: Integrations → ESPHome Smart Updater → Configure",
+            )
+
+        if mode == DEVICE_SELECTION_EXCLUDE:
+            return self._tr(
+                "ui.mode_help_excluded_devices",
+                "All devices will be updated except the excluded ones. Change this mode: Integrations → ESPHome Smart Updater → Configure",
+            )
+
+        return self._tr(
+            "ui.mode_help_all_devices",
+            "All ESPHome devices will be updated. Change this mode: Integrations → ESPHome Smart Updater → Configure",
+        )
 
     def _get_no_update_text(self) -> str:
         return self._tr("ui.no_updates", "✅ All your devices are up to date")
@@ -330,9 +688,15 @@ class CampaignManager:
         max_items = int(
             self.entry.options.get(CONF_MAX_ITEMS, DEFAULT_MAX_ITEMS) or DEFAULT_MAX_ITEMS
         )
-        updates = self._pending_update_entities[:max_items]
+        plan = self._build_campaign_plan()
+        updates = [
+            item.get("entity_id")
+            for item in plan.get("targets", [])
+            if item.get("entity_id")
+        ][:max_items]
 
         if not updates:
+            self._stop_metrics_loop()
             self._reset_runtime_state()
             self.last_error = "no_updates_detected"
             await self._async_save()
@@ -375,6 +739,7 @@ class CampaignManager:
 
         await self._async_save()
         self._notify()
+        self._ensure_metrics_loop()
         self._ensure_worker()
 
     async def async_pause(self) -> None:
@@ -418,6 +783,7 @@ class CampaignManager:
         self.index = min(len(self.done) + len(self.failed) + len(self.skipped) + 1, self.total)
         await self._async_save()
         self._notify()
+        self._ensure_metrics_loop()
         self._ensure_worker()
 
     async def async_stop(self) -> None:
@@ -437,6 +803,7 @@ class CampaignManager:
         if self.state in ("running", "paused"):
             return
 
+        self._stop_metrics_loop()
         self.queue = []
         self.remaining = []
         self.done = []
@@ -515,24 +882,11 @@ class CampaignManager:
             _LOGGER.exception("Error in pending refresh loop")
 
     async def _async_refresh_pending_updates(self) -> None:
-        registry = er.async_get(self.hass)
-        result: list[str] = []
+        all_updates = self._get_all_esphome_update_entities()
+        scoped_updates = self._resolve_pending_update_scope(all_updates)
 
-        for entity_id in self.hass.states.async_entity_ids("update"):
-            state = self.hass.states.get(entity_id)
-            if state is None or state.state != "on":
-                continue
-
-            reg_entry = registry.async_get(entity_id)
-            if reg_entry is None:
-                continue
-
-            if reg_entry.platform == "esphome":
-                result.append(entity_id)
-
-        result.sort()
-        self._pending_update_entities = result
-        self.pending_updates_count = len(result)
+        self._pending_update_entities = scoped_updates
+        self.pending_updates_count = len(scoped_updates)
         self._notify()
 
     async def _async_restore(self) -> None:
@@ -579,6 +933,11 @@ class CampaignManager:
         self.last_processed_entity = data.get("last_processed_entity", "")
         self.last_report = data.get("last_report")
         self.last_report_ts = int(data.get("last_report_ts", 0) or 0)
+        self.last_preview = data.get("last_preview")
+        self.last_preview_ts = int(data.get("last_preview_ts", 0) or 0)
+
+        if not self._is_preview_valid(self.last_preview):
+            self._clear_preview()
 
         if self.state in ("running", "paused") and self.remaining:
             previous_state = self.state
@@ -630,6 +989,41 @@ class CampaignManager:
             self.avg_duration_s = 0
             self.eta_s = len(self.remaining) * 240 if self.remaining else 0
 
+    def _refresh_runtime_metrics(self) -> None:
+        if not self.throttle_enabled:
+            self.cpu = None
+            self.temp = None
+            self.load_1m = None
+            return
+
+        self.cpu = self._read_metric("cpu")
+        self.temp = self._read_metric("temp")
+        self.load_1m = self._read_metric("load")
+
+    def _ensure_metrics_loop(self) -> None:
+        if not self.throttle_enabled:
+            return
+        if self._metrics_task is not None and not self._metrics_task.done():
+            return
+        self._metrics_task = self.hass.loop.create_task(self._async_metrics_loop())
+
+    def _stop_metrics_loop(self) -> None:
+        if self._metrics_task is not None and not self._metrics_task.done():
+            self._metrics_task.cancel()
+        self._metrics_task = None
+
+    async def _async_metrics_loop(self) -> None:
+        try:
+            while self.state == "running" and not self._shutdown and self.throttle_enabled:
+                self._refresh_runtime_metrics()
+                await self._async_save()
+                self._notify()
+                await asyncio.sleep(_METRICS_REFRESH_INTERVAL_S)
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            _LOGGER.exception("Error in metrics refresh loop")
+
     def _ensure_worker(self) -> None:
         if self._worker_task is not None and not self._worker_task.done():
             return
@@ -655,6 +1049,7 @@ class CampaignManager:
                     self._last_duration_refresh_tick = self.duration_s // _RUNTIME_REFRESH_INTERVAL_S
                     self.current = ""
                     self.current_update_entity = ""
+                    self._stop_metrics_loop()
                     await self._async_save()
                     self._notify()
                     return
@@ -668,9 +1063,7 @@ class CampaignManager:
                     self.total,
                 )
 
-                self.cpu = self._read_metric("cpu")
-                self.temp = self._read_metric("temp")
-                self.load_1m = self._read_metric("load")
+                self._refresh_runtime_metrics()
 
                 await self._async_save()
                 self._notify()
@@ -737,6 +1130,7 @@ class CampaignManager:
                     self.pause_started_ts = int(time.time())
                     self.duration_s = self._active_elapsed_s()
                     self._last_duration_refresh_tick = self.duration_s // _RUNTIME_REFRESH_INTERVAL_S
+                    self._stop_metrics_loop()
                     await self._async_save()
                     self._notify()
                     return
@@ -790,6 +1184,7 @@ class CampaignManager:
         if not force and new_tick == self._last_duration_refresh_tick:
             return
 
+        self._refresh_runtime_metrics()
         self.duration_s = new_duration_s
         processed = len(self.done) + len(self.failed) + len(self.skipped)
         if processed > 0:
@@ -854,23 +1249,22 @@ class CampaignManager:
 
         if metric == "cpu":
             option_key = CONF_CPU_SENSOR
-            fallback_entity_id = "sensor.processor_use"
             min_value = 0.0
             max_value = 100.0
         elif metric == "temp":
             option_key = CONF_TEMP_SENSOR
-            fallback_entity_id = "sensor.processor_temperature"
             min_value = -20.0
             max_value = 150.0
         elif metric == "load":
             option_key = CONF_LOAD_SENSOR
-            fallback_entity_id = "sensor.load_1m"
             min_value = 0.0
             max_value = 100.0
         else:
             return None
 
-        entity_id = self.entry.options.get(option_key, fallback_entity_id)
+        entity_id = self.entry.options.get(option_key)
+        if not entity_id:
+            return None
         state = self.hass.states.get(entity_id)
         if state is None:
             self._warn_invalid_sensor_once(option_key, entity_id, "entity not found")
@@ -914,13 +1308,11 @@ class CampaignManager:
             self.load_1m = None
             return min_delay
 
-        cpu_now = self._read_metric("cpu")
-        temp_now = self._read_metric("temp")
-        load_now = self._read_metric("load")
+        self._refresh_runtime_metrics()
 
-        self.cpu = cpu_now
-        self.temp = temp_now
-        self.load_1m = load_now
+        cpu_now = self.cpu
+        temp_now = self.temp
+        load_now = self.load_1m
 
         stress_cpu = (cpu_now / 100.0) if cpu_now is not None else 0.0
         stress_load = (load_now / 4.0) if load_now is not None else 0.0
@@ -958,15 +1350,38 @@ class CampaignManager:
         return f"{sec}s"
 
     def _clean_entity_label(self, label: str | None) -> str:
-        return (label or "").replace(" micrologiciel", "").replace(" Micrologiciel", "")
+        return (label or "").strip()
 
-    def _entity_label(self, entity_id: str) -> str:
+    def _device_display_name(self, entity_id: str) -> str:
         if not entity_id:
             return "-"
+
+        entity_registry = er.async_get(self.hass)
+        device_registry = dr.async_get(self.hass)
+        entity_entry = entity_registry.async_get(entity_id)
+
+        if entity_entry is not None:
+            if entity_entry.device_id:
+                device_entry = device_registry.async_get(entity_entry.device_id)
+                if device_entry is not None:
+                    device_name = device_entry.name_by_user or device_entry.name
+                    if device_name:
+                        return self._clean_entity_label(device_name)
+
+            entity_name = entity_entry.original_name or entity_entry.name
+            if entity_name:
+                return self._clean_entity_label(entity_name)
+
         state = self.hass.states.get(entity_id)
-        if state is None:
-            return entity_id
-        return self._clean_entity_label(state.attributes.get("friendly_name") or entity_id)
+        if state is not None:
+            friendly_name = state.attributes.get("friendly_name")
+            if friendly_name:
+                return self._clean_entity_label(friendly_name)
+
+        return entity_id
+
+    def _entity_label(self, entity_id: str) -> str:
+        return self._device_display_name(entity_id)
 
     def _error_level_from_reason(self, reason: str) -> str:
         reason_lower = (reason or "").lower()
@@ -1030,6 +1445,8 @@ class CampaignManager:
         ko = len(self.failed)
         sk = len(self.skipped)
         remaining = len(self.remaining)
+        unavailable_entities = self._get_unavailable_update_entities_in_scope()
+        unavailable = len(unavailable_entities)
         total = self.total or (ok + ko + sk + remaining)
         throttle = "ON" if self.throttle_enabled else "OFF"
         duration = self._format_duration(self.duration_s)
@@ -1041,7 +1458,7 @@ class CampaignManager:
         if stopped:
             lines.append("⏹ " + self._tr("ui.stop_requested", "Stop requested"))
         elif ko > 0:
-            lines.append("❌ " + self._tr("ui.error_current", "Current error"))
+            lines.append("❌ " + self._tr("ui.errors_encountered", self._default_by_language("Erreurs rencontrées", "Errors encountered")))
         else:
             lines.append(self._tr("report.summary", "✅ {done} success • ❌ {failed} failed • ⏭ {skipped} skipped", done=ok, failed=ko, skipped=sk))
 
@@ -1053,6 +1470,7 @@ class CampaignManager:
                 self._tr("report.line_failed", "Failed: {failed}", failed=ko),
                 self._tr("report.line_skipped", "Skipped: {skipped}", skipped=sk),
                 self._tr("report.line_remaining", "Remaining: {remaining}", remaining=remaining),
+                self._tr("report.line_unavailable", "Unavailable / status unknown: {unavailable}", unavailable=unavailable),
                 "",
                 self._tr("report.line_duration", "Duration: {duration}", duration=duration),
                 self._tr("report.line_average", "Average: {average} / device", average=avg),
@@ -1080,9 +1498,15 @@ class CampaignManager:
             for entity_id in self.failed:
                 lines.append(f"- {self._entity_label(entity_id)}")
 
+        if unavailable_entities:
+            lines.extend(["", self._tr("report.unavailable_header", "Unavailable / update status unknown:")])
+            for entity_id in unavailable_entities:
+                lines.append(f"- {self._entity_label(entity_id)}")
+
         return "\n".join(lines)
 
     async def _finish_campaign(self, stopped: bool = False) -> None:
+        self._stop_metrics_loop()
         result = "stopped" if stopped else ("error" if self.failed else "success")
         self.end_ts = int(time.time())
         self.duration_s = self._active_elapsed_s(self.end_ts)
@@ -1106,6 +1530,8 @@ class CampaignManager:
                 "failed": len(self.failed),
                 "skipped": len(self.skipped),
                 "remaining": len(self.remaining),
+                "unavailable": len(self._get_unavailable_update_entities_in_scope()),
+                "unavailable_entities": list(self._get_unavailable_update_entities_in_scope()),
                 "duration_s": self.duration_s,
                 "avg_duration_s": self.avg_duration_s,
                 "throttle_enabled": self.throttle_enabled,
@@ -1168,4 +1594,6 @@ class CampaignManager:
     async def _async_save(self) -> None:
         data = deepcopy(self.campaign_attributes())
         data["state"] = self.state
+        data["last_preview"] = deepcopy(self.last_preview)
+        data["last_preview_ts"] = self.last_preview_ts
         await self.store.async_save(data)
