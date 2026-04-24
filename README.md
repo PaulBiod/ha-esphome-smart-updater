@@ -268,6 +268,19 @@ cards:
           {{ (t.updates_available if t.updates_available is defined else '{count} update(s) available') | replace('{count}', n|string) }}
         {% endif %}
       {% endif %}
+  - type: markdown
+    text_only: true
+    content: >
+      {% set label =
+      state_attr('sensor.esphome_smart_updater_campaign','mode_label') %} {% set
+      value =
+      state_attr('sensor.esphome_smart_updater_campaign','mode_display_text') %}
+      {% set help =
+      state_attr('sensor.esphome_smart_updater_campaign','mode_help_text') %} {%
+      if label and value %} <b>{{ label }} : {{ value }}</b> <font
+      color="#AAAAAA">
+        {{ help | replace('\n','<br>') }}
+      </font> {% endif %}
   - type: conditional
     conditions:
       - condition: or
@@ -372,7 +385,7 @@ cards:
             %} {% set t =
             state_attr('sensor.esphome_smart_updater_campaign','t') or {} %} {%
             if e %}
-              {% set name = state_attr(e,'friendly_name') | replace(' micrologiciel','') | replace(' Micrologiciel','') %}
+              {% set name = state_attr('sensor.esphome_smart_updater_campaign','current_device_display_name') %}
               {% set inst = state_attr(e,'installed_version') %}
               {% set latest = state_attr(e,'latest_version') %}
               {% set prog = state_attr(e,'in_progress') %}
@@ -443,7 +456,13 @@ cards:
               primary: >
                 {% set t =
                 state_attr('sensor.esphome_smart_updater_campaign','t') or {} %}
-                {{ t.delay if t.delay is defined else 'Dynamic delay' }}
+                {% if
+                is_state('binary_sensor.esphome_smart_updater_throttle_enabled','on')
+                %}
+                  {{ t.delay if t.delay is defined else 'Dynamic delay' }}
+                {% else %}
+                  {{ t.delay_fixed if t.delay_fixed is defined else 'Fixed delay' }}
+                {% endif %}
               secondary: >
                 {{ state_attr('sensor.esphome_smart_updater_campaign','delay_s')
                 | int(0) }} s
@@ -513,36 +532,61 @@ cards:
                     primary: >
                       {% set t =
                       state_attr('sensor.esphome_smart_updater_campaign','t') or
-                      {} %} {% set v = states('sensor.processor_use') | float(0)
-                      %} {% if v >= 80 %}🔴 {{ t.cpu if t.cpu is defined else
-                      'CPU' }}{% elif v >= 60 %}⚠️ {{ t.cpu if t.cpu is defined
-                      else 'CPU' }}{% else %}{{ t.cpu if t.cpu is defined else
-                      'CPU' }}{% endif %}
-                    secondary: "{{ states('sensor.processor_use') }} %"
+                      {} %} {% set v =
+                      state_attr('sensor.esphome_smart_updater_campaign','cpu')
+                      %} {% if v is number %}
+                        {% if v >= 80 %}🔴 {{ t.cpu if t.cpu is defined else 'CPU' }}{% elif v >= 60 %}⚠️ {{ t.cpu if t.cpu is defined else 'CPU' }}{% else %}{{ t.cpu if t.cpu is defined else 'CPU' }}{% endif %}
+                      {% else %}
+                        {{ t.cpu if t.cpu is defined else 'CPU' }}
+                      {% endif %}
+                    secondary: >
+                      {% set v =
+                      state_attr('sensor.esphome_smart_updater_campaign','cpu')
+                      %} {% if v is number %}
+                        {{ v | round(1) }} %
+                      {% else %}
+                        -
+                      {% endif %}
                     icon: mdi:cpu-64-bit
                   - type: custom:mushroom-template-card
                     primary: >
                       {% set t =
                       state_attr('sensor.esphome_smart_updater_campaign','t') or
-                      {} %} {% set v = states('sensor.processor_temperature') |
-                      float(0) %} {% if v >= 70 %}🔴 {{ t.cpu_temp if t.cpu_temp
-                      is defined else 'CPU Temp' }}{% elif v >= 60 %}⚠️ {{
-                      t.cpu_temp if t.cpu_temp is defined else 'CPU Temp' }}{%
-                      else %}{{ t.cpu_temp if t.cpu_temp is defined else 'CPU
-                      Temp' }}{% endif %}
-                    secondary: "{{ states('sensor.processor_temperature') }} °C"
+                      {} %} {% set v =
+                      state_attr('sensor.esphome_smart_updater_campaign','temp')
+                      %} {% if v is number %}
+                        {% if v >= 70 %}🔴 {{ t.cpu_temp if t.cpu_temp is defined else 'CPU Temp' }}{% elif v >= 60 %}⚠️ {{ t.cpu_temp if t.cpu_temp is defined else 'CPU Temp' }}{% else %}{{ t.cpu_temp if t.cpu_temp is defined else 'CPU Temp' }}{% endif %}
+                      {% else %}
+                        {{ t.cpu_temp if t.cpu_temp is defined else 'CPU Temp' }}
+                      {% endif %}
+                    secondary: >
+                      {% set v =
+                      state_attr('sensor.esphome_smart_updater_campaign','temp')
+                      %} {% if v is number %}
+                        {{ v | round(1) }} °C
+                      {% else %}
+                        -
+                      {% endif %}
                     icon: mdi:thermometer
                   - type: custom:mushroom-template-card
                     primary: >
                       {% set t =
                       state_attr('sensor.esphome_smart_updater_campaign','t') or
-                      {} %} {% set v = states('sensor.load_1m') | float(0) %} {%
-                      if v >= 2.0 %}🔴 {{ t.load_1m if t.load_1m is defined else
-                      'Load 1m' }}{% elif v >= 1.0 %}⚠️ {{ t.load_1m if
-                      t.load_1m is defined else 'Load 1m' }}{% else %}{{
-                      t.load_1m if t.load_1m is defined else 'Load 1m' }}{%
-                      endif %}
-                    secondary: "{{ states('sensor.load_1m') }}"
+                      {} %} {% set v =
+                      state_attr('sensor.esphome_smart_updater_campaign','load_1m')
+                      %} {% if v is number %}
+                        {% if v >= 2.0 %}🔴 {{ t.load_1m if t.load_1m is defined else 'Load 1m' }}{% elif v >= 1.0 %}⚠️ {{ t.load_1m if t.load_1m is defined else 'Load 1m' }}{% else %}{{ t.load_1m if t.load_1m is defined else 'Load 1m' }}{% endif %}
+                      {% else %}
+                        {{ t.load_1m if t.load_1m is defined else 'Load 1m' }}
+                      {% endif %}
+                    secondary: >
+                      {% set v =
+                      state_attr('sensor.esphome_smart_updater_campaign','load_1m')
+                      %} {% if v is number %}
+                        {{ v | round(2) }}
+                      {% else %}
+                        -
+                      {% endif %}
                     icon: mdi:gauge
         - type: conditional
           conditions:
@@ -703,36 +747,64 @@ cards:
         - type: markdown
           content: >
             {% set t = state_attr('sensor.esphome_smart_updater_campaign','t')
-            or {} %} ### 📟 {{ t.infos if t.infos is defined else 'Infos' }}{%
+            or {} %} ### 📟 {{ t.infos if t.infos is defined else 'Infos' }} {%
             set s =
             state_attr('sensor.esphome_smart_updater_campaign','duration_s') |
-            int(0) %}{% if s > 0 %}{% set h = s // 3600 %}{% set m = (s % 3600)
-            // 60 %}{% set sec = s % 60 %}&emsp; • &emsp;{{ t.duration if
-            t.duration is defined else 'Duration' }} : {% if h > 0 %}{{ '%dh
+            int(0) %} {% if s > 0 %} {% set h = s // 3600 %} {% set m = (s %
+            3600) // 60 %} {% set sec = s % 60 %} &emsp; • &emsp;{{ t.duration
+            if t.duration is defined else 'Duration' }} : {% if h > 0 %}{{ '%dh
             %02dmn' | format(h, m) }}{% else %}{{ '%dmn %02ds' | format(m, sec)
-            }}{% endif %}{% endif %}
-
-            {% set e =
-            state_attr('sensor.esphome_smart_updater_campaign','current_update_entity')
-            %} {% set r =
-            state_attr('sensor.esphome_smart_updater_campaign','remaining') or
-            [] %}
+            }}{% endif %} {% endif %}
 
             **{{ t.current if t.current is defined else 'Current' }} :** {{
-            state_attr(e,'friendly_name') if e else '-' }}
+            state_attr('sensor.esphome_smart_updater_campaign','current_device_display_name')
+            or '-' }}
 
             **{{ t.next_1 if t.next_1 is defined else 'Next 1' }} :** {{
-            state_attr(r[1],'friendly_name') if r|count > 1 else '-' }}
+            state_attr('sensor.esphome_smart_updater_campaign','next_1_display_name')
+            or '-' }}
 
             **{{ t.next_2 if t.next_2 is defined else 'Next 2' }} :** {{
-            state_attr(r[2],'friendly_name') if r|count > 2 else '-' }}
+            state_attr('sensor.esphome_smart_updater_campaign','next_2_display_name')
+            or '-' }}
 
             **{{ t.next_3 if t.next_3 is defined else 'Next 3' }} :** {{
-            state_attr(r[3],'friendly_name') if r|count > 3 else '-' }}
+            state_attr('sensor.esphome_smart_updater_campaign','next_3_display_name')
+            or '-' }}
 
             **{{ t.error if t.error is defined else 'Error' }} :** {{
             state_attr('sensor.esphome_smart_updater_campaign','last_error') or
-            '-' }}
+            '-' }} 
+
+            {% set unavailable =
+            state_attr('sensor.esphome_smart_updater_campaign','unavailable_entities')
+            or
+            state_attr('sensor.esphome_smart_updater_campaign','preview_unavailable')
+            or [] %}
+
+            {% set unavailable_count =
+            state_attr('sensor.esphome_smart_updater_campaign','unavailable_count')
+            | int(unavailable | count) %}<br><hr>
+
+            **⚫ {{ t.preview_unavailable_title if t.preview_unavailable_title is
+            defined else 'Unavailable / unknown update status' }} ({{
+            unavailable_count }})**
+
+            {% if unavailable_count == 0 %}
+
+            {{ t.none if t.none is defined else 'None' }}
+
+            {% else %}
+
+            {% for item in unavailable %}
+
+            • {{ item.name if item.name is defined else item.entity_id if
+            item.entity_id is defined else item }}
+
+            {% endfor %}
+
+            {% endif %}
+
 
 
 ```
@@ -927,15 +999,21 @@ cards:
             state_attr('sensor.esphome_smart_updater_campaign','preview_targets')
             or [] %}
 
+            {% set count = targets | count %}
 
-            ### 🟢 {{ t.preview_targets_title }}
+
+            ### 🟢 {{ t.preview_targets_title }} <font color="#00E676">({{ count
+            }})</font>
 
 
-            {% if targets | count == 0 %}
+            {% if count == 0 %}
 
             {{ t.none }}
 
             {% else %}
+
+            <details><summary><b>{{ t.click_to_expand }}</b></summary>
+
 
             {% for item in targets %}
 
@@ -953,6 +1031,8 @@ cards:
 
             {% endfor %}
 
+            </details>
+
             {% endif %}
         - type: markdown
           content: >-
@@ -963,15 +1043,21 @@ cards:
             state_attr('sensor.esphome_smart_updater_campaign','preview_in_scope_no_update')
             or [] %}
 
+            {% set count = no_update_list | count %}
 
-            ### 🟡 {{ t.preview_in_scope_no_update_title }}
+
+            ### 🟡 {{ t.preview_in_scope_no_update_title }} <font
+            color="#FFD600">({{ count }})</font>
 
 
-            {% if no_update_list | count == 0 %}
+            {% if count == 0 %}
 
             {{ t.none }}
 
             {% else %}
+
+            <details><summary><b>{{ t.click_to_expand }}</b></summary>
+
 
             {% for item in no_update_list %}
 
@@ -980,6 +1066,8 @@ cards:
 
 
             {% endfor %}
+
+            </details>
 
             {% endif %}
         - type: markdown
@@ -991,18 +1079,20 @@ cards:
             state_attr('sensor.esphome_smart_updater_campaign','preview_out_of_scope')
             or [] %}
 
+            {% set count = out_list | count %}
 
-            ### 🔵 {{ t.preview_out_of_scope_expand }}
+
+            ### 🔵 {{ t.preview_out_of_scope_expand }} <font color="#2196F3">({{
+            count }})</font>
 
 
-            {% if out_list | count == 0 %}
+            {% if count == 0 %}
 
             {{ t.none }}
 
             {% else %}
 
-            <details><summary><b>{{ t.preview_out_of_scope_expand
-            }}</b></summary>
+            <details><summary><b>{{ t.click_to_expand }}</b></summary>
 
 
             {% for item in out_list %}
@@ -1016,6 +1106,35 @@ cards:
             </details>
 
             {% endif %}
+        - type: markdown
+          content: >-
+            {% set t = state_attr('sensor.esphome_smart_updater_campaign','t')
+            or {} %} {% set unavailable_list =
+            state_attr('sensor.esphome_smart_updater_campaign','preview_unavailable')
+            or [] %} {% set count = unavailable_list | count %}
+
+            ### ⚫ {{ t.preview_unavailable_title }} <font color="#9E9E9E">({{
+            count }})</font>
+
+            {% if count == 0 %}
+
+            {{ t.none }}
+
+            {% else %}
+
+            <details><summary><b>{{ t.click_to_expand }}</b></summary>
+
+            {% for item in unavailable_list %}
+
+            • {{ item.name if item.name is defined else item.entity_id if
+            item.entity_id is defined else item }}
+
+            {% endfor %}
+
+            </details>
+
+            {% endif %}
+
 
 ```
 
