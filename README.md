@@ -227,6 +227,18 @@ automation:
 
 ---
 
+## 🎯 Campaign targeting
+
+You can control which devices are included in a campaign:
+
+- **All devices** → default behavior (all ESPHome updates)
+- **Selected devices** → only update specific devices
+- **Exclude devices** → run on all except selected ones
+
+This allows you to:
+- skip problematic devices
+- test updates on a subset
+- roll out progressively
 
 ## 📊 Lovelace Card
 
