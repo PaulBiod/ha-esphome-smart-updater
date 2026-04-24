@@ -25,7 +25,8 @@
           "timeout": "Time-out vóór fout (seconden)",
           "max_items": "Maximum aantal apparaten per batch",
           "restore_resume_delay": "Vertraging vóór hervatten na een herstart van Home Assistant",
-          "throttle": "Automatische aanpassing van de vertraging inschakelen"
+          "throttle": "Automatische aanpassing van de vertraging inschakelen",
+          "device_selection_mode": "Device selection mode"
         }
       },
       "throttle": {
@@ -38,7 +39,50 @@
           "delay_min": "Minimale vertraging tussen updates (s)",
           "delay_max": "Maximale vertraging tussen updates (s)"
         }
+      },
+      "device_scope": {
+        "title": "Target devices",
+        "description": "Choose the ESPHome devices to include or exclude depending on the selected mode.",
+        "data": {
+          "selected_update_entities": "Included devices",
+          "excluded_update_entities": "Excluded devices"
+        }
       }
+    }
+  },
+  "selector": {
+    "device_selection_mode": {
+      "options": {
+        "all_devices": "All devices",
+        "selected_devices": "Selected devices",
+        "exclude_devices": "Exclude devices"
+      }
+    }
+  },
+  "services": {
+    "start_campaign": {
+      "name": "Start campaign",
+      "description": "Start the update campaign"
+    },
+    "pause_campaign": {
+      "name": "Pause campaign",
+      "description": "Pause the current campaign"
+    },
+    "resume_campaign": {
+      "name": "Resume campaign",
+      "description": "Resume the paused campaign"
+    },
+    "stop_campaign": {
+      "name": "Stop campaign",
+      "description": "Stop the current campaign"
+    },
+    "clear_report": {
+      "name": "Clear report",
+      "description": "Clear the last campaign report"
+    },
+    "preview_campaign": {
+      "name": "Preview campaign",
+      "description": "Generate a preview of the next update campaign without executing it"
     }
   }
 }

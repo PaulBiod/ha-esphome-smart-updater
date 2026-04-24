@@ -25,7 +25,8 @@
           "timeout": "Failure timeout (seconds)",
           "max_items": "Maximum devices per batch",
           "restore_resume_delay": "Delay before resuming after Home Assistant restart",
-          "throttle": "Enable automatic delay adaptation"
+          "throttle": "Enable automatic delay adaptation",
+          "device_selection_mode": "Device selection mode"
         }
       },
       "throttle": {
@@ -38,7 +39,60 @@
           "delay_min": "Minimum delay between updates (s)",
           "delay_max": "Maximum delay between updates (s)"
         }
+      },
+      "select_devices_include": {
+        "title": "Choose the ESPHome devices to include",
+        "description": "The devices selected below will be included in the campaign.",
+        "data": {
+          "selected_update_entities": "Included devices"
+        }
+      },
+      "select_devices_exclude": {
+        "title": "Choose the ESPHome devices to exclude",
+        "description": "The devices selected below will be excluded from the campaign.",
+        "data": {
+          "excluded_update_entities": "Excluded devices"
+        }
       }
+    },
+    "error": {
+      "include_device_list_required": "You chose the selected devices mode. You must select at least one ESPHome device, or switch to the all devices mode.",
+      "exclude_device_list_required": "You chose the exclude devices mode. You must select at least one ESPHome device, or switch to the all devices mode."
+    }
+  },
+  "selector": {
+    "device_selection_mode": {
+      "options": {
+        "all_devices": "All devices",
+        "selected_devices": "Selected devices",
+        "exclude_devices": "Exclude devices"
+      }
+    }
+  },
+  "services": {
+    "start_campaign": {
+      "name": "Start campaign",
+      "description": "Start the update campaign"
+    },
+    "pause_campaign": {
+      "name": "Pause campaign",
+      "description": "Pause the current campaign"
+    },
+    "resume_campaign": {
+      "name": "Resume campaign",
+      "description": "Resume the paused campaign"
+    },
+    "stop_campaign": {
+      "name": "Stop campaign",
+      "description": "Stop the current campaign"
+    },
+    "clear_report": {
+      "name": "Clear report",
+      "description": "Clear the last campaign report"
+    },
+    "preview_campaign": {
+      "name": "Preview campaign",
+      "description": "Generate a preview of the next update campaign without executing it"
     }
   }
 }

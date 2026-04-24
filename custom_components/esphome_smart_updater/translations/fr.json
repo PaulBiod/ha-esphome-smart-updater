@@ -25,7 +25,8 @@
           "timeout": "Timeout avant échec (secondes)",
           "max_items": "Nombre maximum d'appareils par lot",
           "restore_resume_delay": "Délai avant reprise après redémarrage de Home Assistant",
-          "throttle": "Activer l'adaptation automatique du délai"
+          "throttle": "Activer l'adaptation automatique du délai",
+          "device_selection_mode": "Mode de sélection des appareils"
         }
       },
       "throttle": {
@@ -38,7 +39,60 @@
           "delay_min": "Délai minimum entre deux mises à jour (s)",
           "delay_max": "Délai maximum entre deux mises à jour (s)"
         }
+      },
+      "select_devices_include": {
+        "title": "Choisissez les appareils ESPHome à inclure",
+        "description": "Les appareils sélectionnés ci-dessous seront inclus dans la campagne.",
+        "data": {
+          "selected_update_entities": "Appareils inclus"
+        }
+      },
+      "select_devices_exclude": {
+        "title": "Choisissez les appareils ESPHome à exclure",
+        "description": "Les appareils sélectionnés ci-dessous seront exclus de la campagne.",
+        "data": {
+          "excluded_update_entities": "Appareils exclus"
+        }
       }
+    },
+    "error": {
+      "include_device_list_required": "Vous avez choisi le mode « appareils sélectionnés ». Vous devez sélectionner au moins un appareil ESPHome, ou choisir le mode tous les appareils.",
+      "exclude_device_list_required": "Vous avez choisi le mode « exclure des appareils ». Vous devez sélectionner au moins un appareil ESPHome, ou choisir le mode tous les appareils."
+    }
+  },
+  "selector": {
+    "device_selection_mode": {
+      "options": {
+        "all_devices": "Tous les appareils",
+        "selected_devices": "Appareils sélectionnés",
+        "exclude_devices": "Exclure des appareils"
+      }
+    }
+  },
+  "services": {
+    "start_campaign": {
+      "name": "Démarrer la campagne",
+      "description": "Démarre la campagne de mise à jour"
+    },
+    "pause_campaign": {
+      "name": "Mettre en pause",
+      "description": "Met la campagne en pause"
+    },
+    "resume_campaign": {
+      "name": "Reprendre",
+      "description": "Reprend la campagne en pause"
+    },
+    "stop_campaign": {
+      "name": "Arrêter la campagne",
+      "description": "Arrête la campagne en cours"
+    },
+    "clear_report": {
+      "name": "Effacer le rapport",
+      "description": "Efface le dernier rapport de campagne"
+    },
+    "preview_campaign": {
+      "name": "Aperçu de campagne",
+      "description": "Génère un aperçu de la prochaine campagne sans exécuter les mises à jour"
     }
   }
 }
