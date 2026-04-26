@@ -74,7 +74,9 @@
     "preview_unavailable": "Unavailable",
     "preview_unavailable_title": "Unavailable / update status unknown",
     "none": "None",
-    "delay_fixed": "Fixed delay"
+    "delay_fixed": "Fixed delay",
+    "waiting_next_device": "Waiting before next device",
+    "waiting_next_device_in": "Next flash in {time}"
   },
   "report": {
     "summary": "✅ {done} success • ❌ {failed} failed • ⏭ {skipped} skipped",
@@ -90,7 +92,8 @@
     "failed_header": "Failed:",
     "notification_title": "ESPHome Smart Updater",
     "line_unavailable": "Unavailable / status unknown: {unavailable}",
-    "unavailable_header": "Unavailable / update status unknown:"
+    "unavailable_header": "Unavailable / update status unknown:",
+    "skipped_header": "Skipped:"
   },
   "errors": {
     "timeout": "OTA timeout",
@@ -98,6 +101,7 @@
     "connection": "Connection error",
     "unknown": "Unknown error",
     "worker_crash": "Worker crashed",
-    "skipped": "Device skipped"
+    "skipped": "Device skipped",
+    "state_changed": "State changed since campaign start"
   }
 }

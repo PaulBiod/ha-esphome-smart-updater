@@ -5,7 +5,7 @@
     "success": "Geslaagd",
     "failed": "Mislukt",
     "skipped": "Overgeslagen",
-    "eta": "ETA",
+    "eta": "Resterende tijd",
     "delay": "Dynamische vertraging",
     "server_load": "Serverbelasting",
     "cpu": "CPU",
@@ -74,7 +74,9 @@
     "preview_unavailable": "Niet beschikbaar",
     "preview_unavailable_title": "Niet beschikbaar / updatestatus onbekend",
     "none": "Geen",
-    "delay_fixed": "Vaste vertraging"
+    "delay_fixed": "Vaste vertraging",
+    "waiting_next_device": "Wachten voor volgend apparaat",
+    "waiting_next_device_in": "Volgende flash over {time}"
   },
   "report": {
     "summary": "✅ {done} geslaagd • ❌ {failed} mislukt • ⏭ {skipped} overgeslagen",
@@ -90,7 +92,8 @@
     "failed_header": "Mislukt:",
     "notification_title": "ESPHome Smart Updater",
     "line_unavailable": "Niet beschikbaar / status onbekend: {unavailable}",
-    "unavailable_header": "Niet beschikbaar / updatestatus onbekend:"
+    "unavailable_header": "Niet beschikbaar / updatestatus onbekend:",
+    "skipped_header": "Overgeslagen:"
   },
   "errors": {
     "timeout": "OTA-time-out",
@@ -98,6 +101,7 @@
     "connection": "Verbindingsfout",
     "unknown": "Onbekende fout",
     "worker_crash": "Worker gecrasht",
-    "skipped": "Apparaat overgeslagen"
+    "skipped": "Apparaat overgeslagen",
+    "state_changed": "Status gewijzigd sinds de start van de campagne"
   }
 }

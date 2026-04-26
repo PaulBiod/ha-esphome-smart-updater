@@ -5,7 +5,7 @@
     "success": "Udane",
     "failed": "Nieudane",
     "skipped": "Pominięte",
-    "eta": "ETA",
+    "eta": "Pozostały czas",
     "delay": "Dynamiczne opóźnienie",
     "server_load": "Obciążenie serwera",
     "cpu": "CPU",
@@ -74,7 +74,9 @@
     "preview_unavailable": "Niedostępne",
     "preview_unavailable_title": "Niedostępne / status aktualizacji nieznany",
     "none": "Brak",
-    "delay_fixed": "Stałe opóźnienie"
+    "delay_fixed": "Stałe opóźnienie",
+    "waiting_next_device": "Oczekiwanie przed następnym urządzeniem",
+    "waiting_next_device_in": "Następne flashowanie za {time}"
   },
   "report": {
     "summary": "✅ {done} udane • ❌ {failed} nieudane • ⏭ {skipped} pominięte",
@@ -90,7 +92,8 @@
     "failed_header": "Nieudane:",
     "notification_title": "ESPHome Smart Updater",
     "line_unavailable": "Niedostępne / status nieznany: {unavailable}",
-    "unavailable_header": "Niedostępne / status aktualizacji nieznany:"
+    "unavailable_header": "Niedostępne / status aktualizacji nieznany:",
+    "skipped_header": "Pominięte:"
   },
   "errors": {
     "timeout": "Przekroczono czas OTA",
@@ -98,6 +101,7 @@
     "connection": "Błąd połączenia",
     "unknown": "Nieznany błąd",
     "worker_crash": "Worker uległ awarii",
-    "skipped": "Urządzenie pominięte"
+    "skipped": "Urządzenie pominięte",
+    "state_changed": "Stan zmienił się od rozpoczęcia kampanii"
   }
 }

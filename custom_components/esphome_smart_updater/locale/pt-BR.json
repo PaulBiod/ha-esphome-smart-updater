@@ -5,7 +5,7 @@
     "success": "Sucesso",
     "failed": "Falhas",
     "skipped": "Ignorados",
-    "eta": "ETA",
+    "eta": "Tempo restante",
     "delay": "Atraso dinâmico",
     "server_load": "Carga do servidor",
     "cpu": "CPU",
@@ -74,7 +74,9 @@
     "preview_unavailable": "Indisponíveis",
     "preview_unavailable_title": "Indisponíveis / status da atualização desconhecido",
     "none": "Nenhum",
-    "delay_fixed": "Atraso fixo"
+    "delay_fixed": "Atraso fixo",
+    "waiting_next_device": "Aguardando antes do próximo dispositivo",
+    "waiting_next_device_in": "Próximo flash em {time}"
   },
   "report": {
     "summary": "✅ {done} sucesso • ❌ {failed} falhas • ⏭ {skipped} ignorados",
@@ -90,7 +92,8 @@
     "failed_header": "Falhas:",
     "notification_title": "ESPHome Smart Updater",
     "line_unavailable": "Indisponíveis / status desconhecido: {unavailable}",
-    "unavailable_header": "Indisponíveis / status da atualização desconhecido:"
+    "unavailable_header": "Indisponíveis / status da atualização desconhecido:",
+    "skipped_header": "Ignorados:"
   },
   "errors": {
     "timeout": "Tempo limite OTA",
@@ -98,6 +101,7 @@
     "connection": "Erro de conexão",
     "unknown": "Erro desconhecido",
     "worker_crash": "Worker interrompido",
-    "skipped": "Dispositivo ignorado"
+    "skipped": "Dispositivo ignorado",
+    "state_changed": "Estado alterado desde o início da campanha"
   }
 }

@@ -5,7 +5,7 @@
     "success": "Úspěšné",
     "failed": "Neúspěšné",
     "skipped": "Přeskočené",
-    "eta": "ETA",
+    "eta": "Zbývající čas",
     "delay": "Dynamické zpoždění",
     "server_load": "Zatížení serveru",
     "cpu": "CPU",
@@ -74,7 +74,9 @@
     "preview_unavailable": "Nedostupné",
     "preview_unavailable_title": "Nedostupné / stav aktualizace neznámý",
     "none": "Žádné",
-    "delay_fixed": "Pevné zpoždění"
+    "delay_fixed": "Pevné zpoždění",
+    "waiting_next_device": "Čekání před dalším zařízením",
+    "waiting_next_device_in": "Další flash za {time}"
   },
   "report": {
     "summary": "✅ {done} úspěšné • ❌ {failed} neúspěšné • ⏭ {skipped} přeskočené",
@@ -90,7 +92,8 @@
     "failed_header": "Neúspěšné:",
     "notification_title": "ESPHome Smart Updater",
     "line_unavailable": "Nedostupné / neznámý stav: {unavailable}",
-    "unavailable_header": "Nedostupné / stav aktualizace neznámý:"
+    "unavailable_header": "Nedostupné / stav aktualizace neznámý:",
+    "skipped_header": "Přeskočené:"
   },
   "errors": {
     "timeout": "Vypršel čas OTA",
@@ -98,6 +101,7 @@
     "connection": "Chyba připojení",
     "unknown": "Neznámá chyba",
     "worker_crash": "Worker havaroval",
-    "skipped": "Zařízení přeskočeno"
+    "skipped": "Zařízení přeskočeno",
+    "state_changed": "Stav se změnil od začátku kampaně"
   }
 }

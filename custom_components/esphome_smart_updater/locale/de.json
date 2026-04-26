@@ -5,7 +5,7 @@
     "success": "Erfolgreich",
     "failed": "Fehlgeschlagen",
     "skipped": "Übersprungen",
-    "eta": "ETA",
+    "eta": "Verbleibende Zeit",
     "delay": "Dynamische Verzögerung",
     "server_load": "Serverlast",
     "cpu": "CPU",
@@ -74,7 +74,9 @@
     "preview_unavailable": "Nicht verfügbar",
     "preview_unavailable_title": "Nicht verfügbar / Update-Status unbekannt",
     "none": "Keine",
-    "delay_fixed": "Feste Verzögerung"
+    "delay_fixed": "Feste Verzögerung",
+    "waiting_next_device": "Warten vor dem nächsten Gerät",
+    "waiting_next_device_in": "Nächstes Flashen in {time}"
   },
   "report": {
     "summary": "✅ {done} erfolgreich • ❌ {failed} fehlgeschlagen • ⏭ {skipped} übersprungen",
@@ -90,7 +92,8 @@
     "failed_header": "Fehlgeschlagen:",
     "notification_title": "ESPHome Smart Updater",
     "line_unavailable": "Nicht verfügbar / Status unbekannt: {unavailable}",
-    "unavailable_header": "Nicht verfügbar / Update-Status unbekannt:"
+    "unavailable_header": "Nicht verfügbar / Update-Status unbekannt:",
+    "skipped_header": "Übersprungen:"
   },
   "errors": {
     "timeout": "OTA-Zeitüberschreitung",
@@ -98,6 +101,7 @@
     "connection": "Verbindungsfehler",
     "unknown": "Unbekannter Fehler",
     "worker_crash": "Worker abgestürzt",
-    "skipped": "Gerät übersprungen"
+    "skipped": "Gerät übersprungen",
+    "state_changed": "Status seit Kampagnenstart geändert"
   }
 }
