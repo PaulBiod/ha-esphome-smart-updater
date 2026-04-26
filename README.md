@@ -280,6 +280,23 @@ cards:
           {{ (t.updates_available if t.updates_available is defined else '{count} update(s) available') | replace('{count}', n|string) }}
         {% endif %}
       {% endif %}
+  - type: conditional
+    conditions:
+      - condition: state
+        entity: sensor.esphome_smart_updater_campaign
+        state: paused
+    card:
+      type: custom:mushroom-template-card
+      primary: >
+        {% set t = state_attr('sensor.esphome_smart_updater_campaign','t') or {}
+        %} {{ t.paused if t.paused is defined else 'Paused' }}
+      icon: mdi:pause-circle
+      icon_color: orange
+      tap_action:
+        action: call-service
+        service: esphome_smart_updater.resume_campaign
+      hold_action:
+        action: none
   - type: markdown
     text_only: true
     content: >
@@ -389,30 +406,63 @@ cards:
         - type: custom:mushroom-template-card
           primary: >
             {% set t = state_attr('sensor.esphome_smart_updater_campaign','t')
-            or {} %} {{ t.current_device if t.current_device is defined else
-            'Current device' }}
+            or {} %} {% set e =
+            state_attr('sensor.esphome_smart_updater_campaign','current_update_entity')
+            %} {% set name =
+            state_attr('sensor.esphome_smart_updater_campaign','current_device_display_name')
+            %} {% set waiting =
+            is_state('binary_sensor.esphome_smart_updater_waiting_next_device','on')
+            %} {% if e %}
+              {{ t.current_device if t.current_device is defined else 'Current device' }} : 🟢 {{ name }}
+            {% elif waiting %}
+              {{ t.waiting_next_device if t.waiting_next_device is defined else 'Waiting before next device' }}
+            {% else %}
+              {{ t.current_device if t.current_device is defined else 'Current device' }}
+            {% endif %}
           secondary: >
             {% set e =
             state_attr('sensor.esphome_smart_updater_campaign','current_update_entity')
             %} {% set t =
             state_attr('sensor.esphome_smart_updater_campaign','t') or {} %} {%
-            if e %}
-              {% set name = state_attr('sensor.esphome_smart_updater_campaign','current_device_display_name') %}
+            set waiting =
+            is_state('binary_sensor.esphome_smart_updater_waiting_next_device','on')
+            %} {% if e %}
               {% set inst = state_attr(e,'installed_version') %}
               {% set latest = state_attr(e,'latest_version') %}
               {% set prog = state_attr(e,'in_progress') %}
-              {{ name }}
-              {% if inst and latest %}
-              {{ inst }} → {{ latest }}
-              {% endif %}
-              {% if prog %}
-              {{ t.running_label if t.running_label is defined else 'Running' }}
-              {% endif %}
+              {% if inst and latest %}{{ inst }} → {{ latest }}{% endif %}{% if prog %}{{ '\n' }}{{ t.running_label if t.running_label is defined else 'Running' }}...{% endif %}
+            {% elif waiting %}
+              {% set s = state_attr('sensor.esphome_smart_updater_campaign','waiting_next_device_remaining_s') | int(0) %}
+              {{ (t.waiting_next_device_in if t.waiting_next_device_in is defined else 'Next flash in {time}') | replace('{time}', '%02d:%02d' | format(s // 60, s % 60)) }}
             {% else %}
-              -
+              {% set s = states('sensor.esphome_smart_updater_campaign') %}
+              {% if s == 'paused' %}
+                {{ t.paused if t.paused is defined else 'Paused' }}
+              {% else %}
+                -
+              {% endif %}
             {% endif %}
           multiline_secondary: true
-          icon: mdi:chip
+          icon: >
+            {% if
+            is_state('binary_sensor.esphome_smart_updater_waiting_next_device','on')
+            and not
+            state_attr('sensor.esphome_smart_updater_campaign','current_update_entity')
+            %}
+              mdi:timer-sand
+            {% else %}
+              mdi:chip
+            {% endif %}
+          icon_color: >
+            {% if
+            is_state('binary_sensor.esphome_smart_updater_waiting_next_device','on')
+            and not
+            state_attr('sensor.esphome_smart_updater_campaign','current_update_entity')
+            %}
+              blue
+            {% else %}
+              disabled
+            {% endif %}
         - type: grid
           columns: 3
           square: false
@@ -426,6 +476,11 @@ cards:
                 {{ (state_attr('sensor.esphome_smart_updater_campaign','done')
                 or []) | count }}
               icon: mdi:check
+              icon_color: >
+                {% set n =
+                (state_attr('sensor.esphome_smart_updater_campaign','done') or
+                []) | count %} {% if n > 0 %} green {% else %} disabled {% endif
+                %}
             - type: custom:mushroom-template-card
               primary: >
                 {% set t =
@@ -435,6 +490,11 @@ cards:
                 {{ (state_attr('sensor.esphome_smart_updater_campaign','failed')
                 or []) | count }}
               icon: mdi:alert
+              icon_color: >
+                {% set n =
+                (state_attr('sensor.esphome_smart_updater_campaign','failed') or
+                []) | count %} {% if n > 0 %} red {% else %} disabled {% endif
+                %}
             - type: custom:mushroom-template-card
               primary: >
                 {% set t =
@@ -445,6 +505,11 @@ cards:
                 (state_attr('sensor.esphome_smart_updater_campaign','skipped')
                 or []) | count }}
               icon: mdi:skip-next
+              icon_color: >
+                {% set n =
+                (state_attr('sensor.esphome_smart_updater_campaign','skipped')
+                or []) | count %} {% if n > 0 %} orange {% else %} disabled {%
+                endif %}
         - type: grid
           columns: 2
           square: false
@@ -768,9 +833,27 @@ cards:
             %02dmn' | format(h, m) }}{% else %}{{ '%dmn %02ds' | format(m, sec)
             }}{% endif %} {% endif %}
 
-            **{{ t.current if t.current is defined else 'Current' }} :** {{
+            {% set e =
+            state_attr('sensor.esphome_smart_updater_campaign','current_update_entity')
+            %} {% set waiting_next =
+            is_state('binary_sensor.esphome_smart_updater_waiting_next_device','on')
+            %} {% set waiting_s =
+            state_attr('sensor.esphome_smart_updater_campaign','waiting_next_device_remaining_s')
+            | int(0) %}
+
+            **{{ t.current if t.current is defined else 'Current' }} :** {% if e
+            %} <font color="#FFD600">{{
             state_attr('sensor.esphome_smart_updater_campaign','current_device_display_name')
-            or '-' }}
+            or '-' }}</font> {% elif waiting_next %} <font color="#FFD600">{{
+            (t.waiting_next_device_in if t.waiting_next_device_in is defined
+            else 'Next flash in {time}') | replace('{time}', '%02d:%02d' |
+            format(waiting_s // 60, waiting_s % 60)) }}</font> {% else %} {% set
+            s = states('sensor.esphome_smart_updater_campaign') %} {% if s ==
+            'paused' %}
+              <font color="#FFD600">{{ t.paused if t.paused is defined else 'Paused' }}</font>
+            {% else %}
+              -
+            {% endif %} {% endif %}
 
             **{{ t.next_1 if t.next_1 is defined else 'Next 1' }} :** {{
             state_attr('sensor.esphome_smart_updater_campaign','next_1_display_name')
@@ -784,9 +867,13 @@ cards:
             state_attr('sensor.esphome_smart_updater_campaign','next_3_display_name')
             or '-' }}
 
-            **{{ t.error if t.error is defined else 'Error' }} :** {{
-            state_attr('sensor.esphome_smart_updater_campaign','last_error') or
-            '-' }} 
+            {% set last_err =
+            state_attr('sensor.esphome_smart_updater_campaign','last_error') %}
+            **{{ t.error if t.error is defined else 'Error' }} :** {% set n =
+            (state_attr('sensor.esphome_smart_updater_campaign','failed') or [])
+            | count %}{% if n > 0 %}<font color="#FF5252">{{ (t.devices_count if
+            t.devices_count is defined else '{count} device(s)') |
+            replace('{count}', n|string) }}</font>{% else %}-{% endif %} 
 
             {% set unavailable =
             state_attr('sensor.esphome_smart_updater_campaign','unavailable_entities')
@@ -810,12 +897,30 @@ cards:
 
             {% for item in unavailable %}
 
-            • {{ item.name if item.name is defined else item.entity_id if
-            item.entity_id is defined else item }}
+            <font color="#FF5252">{{
+              (
+                item.name
+                if item.name is defined
+                else item.entity_id
+                if item.entity_id is defined
+                else item
+              )
+              | replace('update.','')
+              | replace('_firmware','')
+              | replace('_Firmware','')
+              | replace('_micrologiciel','')
+              | replace('_Micrologiciel','')
+              | replace(' firmware','')
+              | replace(' Firmware','')
+              | replace(' micrologiciel','')
+              | replace(' Micrologiciel','')
+              | replace('_',' ')
+            }}</font>
 
             {% endfor %}
 
             {% endif %}
+
 
 
 
