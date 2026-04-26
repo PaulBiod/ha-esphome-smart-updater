@@ -17,6 +17,7 @@ from .const import (
     BINARY_SENSOR_CPU_METRIC_VISIBLE_UNIQUE_ID,
     BINARY_SENSOR_TEMP_METRIC_VISIBLE_UNIQUE_ID,
     BINARY_SENSOR_LOAD_METRIC_VISIBLE_UNIQUE_ID,
+    BINARY_SENSOR_WAITING_NEXT_DEVICE_UNIQUE_ID,
     DOMAIN,
 )
 
@@ -40,6 +41,7 @@ async def async_setup_entry(
             ESUCpuMetricVisibleBinarySensor(manager),
             ESUTempMetricVisibleBinarySensor(manager),
             ESULoadMetricVisibleBinarySensor(manager),
+            ESUWaitingNextDeviceBinarySensor(manager),
         ]
     )
 
@@ -197,3 +199,13 @@ class ESULoadMetricVisibleBinarySensor(_BaseESUBinarySensor):
     @property
     def is_on(self):
         return bool(getattr(self.manager, "load_source_entity_id", ""))
+
+
+class ESUWaitingNextDeviceBinarySensor(_BaseESUBinarySensor):
+    _attr_name = "ESPHome Smart Updater Waiting Next Device"
+    _attr_unique_id = BINARY_SENSOR_WAITING_NEXT_DEVICE_UNIQUE_ID
+    _attr_icon = "mdi:timer-sand"
+
+    @property
+    def is_on(self):
+        return bool(getattr(self.manager, "waiting_next_device", False))

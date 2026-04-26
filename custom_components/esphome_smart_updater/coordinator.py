@@ -70,6 +70,7 @@ class CampaignManager:
         self.failed: list[str] = []
         self.failed_details: list[dict[str, str]] = []
         self.skipped: list[str] = []
+        self.skipped_details: list[dict[str, str]] = []
 
         self.current = ""
         self.current_update_entity = ""
@@ -84,6 +85,8 @@ class CampaignManager:
         self.avg_duration_s = 0
         self.eta_s = 0
         self.delay_s = 0
+        self.waiting_next_device = False
+        self.waiting_next_device_remaining_s = 0
 
         self.cpu = None
         self.temp = None
@@ -326,9 +329,13 @@ class CampaignManager:
     def _get_unavailable_update_entities_in_scope(self) -> list[str]:
         inventory = self._get_all_esphome_update_entities_inventory()
         scoped_entities = self._resolve_entity_scope(inventory)
+        skipped_entities = set(self.skipped)
         result: list[str] = []
 
         for entity_id in scoped_entities:
+            if entity_id in skipped_entities:
+                continue
+
             state = self.hass.states.get(entity_id)
             if state is None or state.state in ("unavailable", "unknown"):
                 result.append(entity_id)
@@ -378,6 +385,7 @@ class CampaignManager:
             "failed": list(self.failed),
             "failed_details": list(self.failed_details),
             "skipped": list(self.skipped),
+            "skipped_details": list(self.skipped_details),
             "current": self.current,
             "current_update_entity": self.current_update_entity,
             "current_device_display_name": self._device_display_name(self.current_update_entity),
@@ -394,6 +402,8 @@ class CampaignManager:
             "avg_duration_s": self.avg_duration_s,
             "eta_s": self.eta_s,
             "delay_s": self.delay_s,
+            "waiting_next_device": self.waiting_next_device,
+            "waiting_next_device_remaining_s": self.waiting_next_device_remaining_s,
             "cpu": self.cpu,
             "temp": self.temp,
             "load_1m": self.load_1m,
@@ -589,6 +599,7 @@ class CampaignManager:
             "success": self._tr("ui.success", "Success"),
             "failed": self._tr("ui.failed", "Failed"),
             "skipped": self._tr("ui.skipped", "Skipped"),
+            "skipped_state_changed": self._tr("errors.state_changed", "State changed since campaign start"),
             "eta": self._tr("ui.eta", "ETA"),
             "duration": self._tr("ui.duration", "Duration"),
             "delay": self._tr("ui.delay", "Dynamic delay"),
@@ -617,6 +628,8 @@ class CampaignManager:
             "error_current": self._tr("ui.error_current", "Current error"),
             "error_critical": self._tr("ui.error_critical", "Critical error"),
             "waiting_ha": self._tr("ui.waiting_ha", "Waiting for Home Assistant startup"),
+            "waiting_next_device": self._tr("ui.waiting_next_device", "Waiting before next device"),
+            "waiting_next_device_in": self._tr("ui.waiting_next_device_in", "Next flash in {time}"),
             "running_label": self._tr("ui.running_label", "Running"),
             "stop_wait": self._tr("ui.stop_wait", "The current device finishes flashing before stopping"),
             "pause_wait": self._tr("ui.pause_wait", "The current device finishes flashing before pausing"),
@@ -710,6 +723,7 @@ class CampaignManager:
         self.failed = []
         self.failed_details = []
         self.skipped = []
+        self.skipped_details = []
         self.current = ""
         self.current_update_entity = ""
         self.total = len(updates)
@@ -724,6 +738,8 @@ class CampaignManager:
         self.delay_s = int(
             self.entry.options.get(CONF_DELAY_MIN, DEFAULT_DELAY_MIN) or DEFAULT_DELAY_MIN
         )
+        self.waiting_next_device = False
+        self.waiting_next_device_remaining_s = 0
         self.pause_requested = False
         self.stop_requested = False
         self.waiting_ha_started = False
@@ -780,6 +796,8 @@ class CampaignManager:
         self.state = "running"
         self.current = ""
         self.current_update_entity = ""
+        self.waiting_next_device = False
+        self.waiting_next_device_remaining_s = 0
         self.index = min(len(self.done) + len(self.failed) + len(self.skipped) + 1, self.total)
         await self._async_save()
         self._notify()
@@ -810,6 +828,7 @@ class CampaignManager:
         self.failed = []
         self.failed_details = []
         self.skipped = []
+        self.skipped_details = []
         self.current = ""
         self.current_update_entity = ""
         self.total = 0
@@ -822,6 +841,8 @@ class CampaignManager:
         self.avg_duration_s = 0
         self.eta_s = 0
         self.delay_s = 0
+        self.waiting_next_device = False
+        self.waiting_next_device_remaining_s = 0
         self.cpu = None
         self.temp = None
         self.load_1m = None
@@ -901,6 +922,7 @@ class CampaignManager:
         self.failed = data.get("failed", [])
         self.failed_details = data.get("failed_details", [])
         self.skipped = data.get("skipped", [])
+        self.skipped_details = data.get("skipped_details", [])
         self.current = ""
         self.current_update_entity = ""
         self.total = data.get("total", len(self.queue))
@@ -922,6 +944,8 @@ class CampaignManager:
         self.cpu = data.get("cpu")
         self.temp = data.get("temp")
         self.load_1m = data.get("load_1m")
+        self.waiting_next_device = False
+        self.waiting_next_device_remaining_s = 0
         self.pause_requested = bool(data.get("pause_requested", False))
         self.stop_requested = bool(data.get("stop_requested", False))
         self.waiting_ha_started = bool(data.get("waiting_ha_started", False))
@@ -980,7 +1004,7 @@ class CampaignManager:
             self.total,
         )
 
-        processed = len(self.done) + len(self.failed) + len(self.skipped)
+        processed = self._processed_flash_count()
         self.duration_s = self._active_elapsed_s()
         if processed > 0 and self.start_ts:
             self.avg_duration_s = round(self.duration_s / processed, 1)
@@ -988,6 +1012,9 @@ class CampaignManager:
         else:
             self.avg_duration_s = 0
             self.eta_s = len(self.remaining) * 240 if self.remaining else 0
+
+    def _processed_flash_count(self) -> int:
+        return len(self.done) + len(self.failed)
 
     def _refresh_runtime_metrics(self) -> None:
         if not self.throttle_enabled:
@@ -1056,8 +1083,24 @@ class CampaignManager:
 
                 await self._async_refresh_pending_updates()
 
+                current_state = self.hass.states.get(current)
+                if current_state is None or current_state.state != "on":
+                    self._add_skipped_detail(current, "state_changed")
+                    self.last_error = ""
+                    self.last_processed_entity = current
+                    if self.remaining and self.remaining[0] == current:
+                        self.remaining.pop(0)
+                    self.current = ""
+                    self.current_update_entity = ""
+                    self.waiting_next_device = False
+                    self.waiting_next_device_remaining_s = 0
+                    await self._async_post_item_update()
+                    continue
+
                 self.current = current
                 self.current_update_entity = current
+                self.waiting_next_device = False
+                self.waiting_next_device_remaining_s = 0
                 self.index = min(
                     len(self.done) + len(self.failed) + len(self.skipped) + 1,
                     self.total,
@@ -1067,18 +1110,6 @@ class CampaignManager:
 
                 await self._async_save()
                 self._notify()
-
-                current_state = self.hass.states.get(current)
-                if current_state is None:
-                    self._add_failed_detail(current, "entity_unavailable_before_install")
-                    self.last_error = "entity_unavailable_before_install"
-                    self.last_processed_entity = current
-                    if self.remaining and self.remaining[0] == current:
-                        self.remaining.pop(0)
-                    self.current = ""
-                    self.current_update_entity = ""
-                    await self._async_post_item_update()
-                    continue
 
                 try:
                     await self.hass.services.async_call(
@@ -1149,6 +1180,8 @@ class CampaignManager:
             self.state = "paused"
             self.current = ""
             self.current_update_entity = ""
+            self.waiting_next_device = False
+            self.waiting_next_device_remaining_s = 0
             self.last_error = "worker_crashed"
             self.current_error = self._tr("errors.worker_crash", "Worker crashed")
             self.current_error_level = "critical"
@@ -1163,7 +1196,7 @@ class CampaignManager:
         self.duration_s = self._active_elapsed_s()
         self._last_duration_refresh_tick = self.duration_s // _RUNTIME_REFRESH_INTERVAL_S
 
-        processed = len(self.done) + len(self.failed) + len(self.skipped)
+        processed = self._processed_flash_count()
         if processed > 0:
             self.avg_duration_s = round(self.duration_s / processed, 1)
             self.eta_s = int(len(self.remaining) * self.avg_duration_s)
@@ -1186,7 +1219,7 @@ class CampaignManager:
 
         self._refresh_runtime_metrics()
         self.duration_s = new_duration_s
-        processed = len(self.done) + len(self.failed) + len(self.skipped)
+        processed = self._processed_flash_count()
         if processed > 0:
             self.avg_duration_s = round(self.duration_s / processed, 1)
             self.eta_s = int(len(self.remaining) * self.avg_duration_s)
@@ -1212,24 +1245,35 @@ class CampaignManager:
 
     async def _async_wait_between_items(self) -> None:
         elapsed_s = 0.0
+        self.waiting_next_device = True
+        self.waiting_next_device_remaining_s = 0
 
-        while self.state == "running" and self.remaining:
-            if self.stop_requested or self.pause_requested:
-                return
+        try:
+            while self.state == "running" and self.remaining:
+                if self.stop_requested or self.pause_requested:
+                    return
 
-            target_delay_s = float(self._compute_dynamic_delay())
-            self.delay_s = int(round(target_delay_s))
+                target_delay_s = float(self._compute_dynamic_delay())
+                self.delay_s = int(round(target_delay_s))
+
+                remaining_wait_s = max(0.0, target_delay_s - elapsed_s)
+                self.waiting_next_device_remaining_s = int(remaining_wait_s + 0.999)
+
+                await self._async_save()
+                self._notify()
+
+                if remaining_wait_s <= 0:
+                    return
+
+                sleep_s = min(1.0, remaining_wait_s)
+                await self._async_maybe_refresh_runtime_clock()
+                await asyncio.sleep(sleep_s)
+                elapsed_s += sleep_s
+        finally:
+            self.waiting_next_device = False
+            self.waiting_next_device_remaining_s = 0
             await self._async_save()
             self._notify()
-
-            remaining_wait_s = target_delay_s - elapsed_s
-            if remaining_wait_s <= 0:
-                return
-
-            sleep_s = min(_THROTTLE_RECHECK_INTERVAL_S, remaining_wait_s)
-            await self._async_maybe_refresh_runtime_clock()
-            await asyncio.sleep(sleep_s)
-            elapsed_s += sleep_s
 
     async def _async_wait_until_off(self, entity_id: str, timeout_s: int) -> bool:
         deadline = time.time() + timeout_s
@@ -1398,6 +1442,9 @@ class CampaignManager:
             base = self._tr("errors.timeout", "OTA timeout")
             return f"{base} ({timeout_value}s)"
 
+        if raw == "state_changed":
+            return self._tr("errors.state_changed", "State changed since campaign start")
+
         if raw == "entity_unavailable_before_install":
             return self._tr("errors.offline", "Device offline")
 
@@ -1416,6 +1463,26 @@ class CampaignManager:
             return self._tr("errors.worker_crash", "Worker crashed")
 
         return raw or self._tr("errors.unknown", "Unknown error")
+
+    def _add_skipped_detail(self, entity_id: str, reason: str) -> None:
+        if entity_id and entity_id not in self.skipped:
+            self.skipped.append(entity_id)
+
+        label = self._entity_label(entity_id)
+        translated_reason = self._translate_reason(reason)
+
+        detail = {
+            "entity_id": entity_id,
+            "entity_label": label,
+            "reason": translated_reason,
+        }
+
+        for idx, item in enumerate(self.skipped_details):
+            if item.get("entity_id") == entity_id:
+                self.skipped_details[idx] = detail
+                break
+        else:
+            self.skipped_details.append(detail)
 
     def _add_failed_detail(self, entity_id: str, reason: str) -> None:
         if entity_id and entity_id not in self.failed:
@@ -1450,7 +1517,9 @@ class CampaignManager:
         total = self.total or (ok + ko + sk + remaining)
         throttle = "ON" if self.throttle_enabled else "OFF"
         duration = self._format_duration(self.duration_s)
-        avg = self._format_duration(self.avg_duration_s) if self.avg_duration_s else "0s"
+        attempted = self._processed_flash_count()
+        avg_s = round(self.duration_s / attempted, 1) if attempted > 0 else 0
+        avg = self._format_duration(avg_s) if avg_s else "0s"
         last_device = self._entity_label(self.last_processed_entity)
 
         lines: list[str] = []
@@ -1498,6 +1567,17 @@ class CampaignManager:
             for entity_id in self.failed:
                 lines.append(f"- {self._entity_label(entity_id)}")
 
+        if self.skipped_details:
+            lines.extend(["", self._tr("report.skipped_header", "Skipped:")])
+            for item in self.skipped_details:
+                name = item.get("entity_label") or self._entity_label(item.get("entity_id", ""))
+                reason = item.get("reason") or self._tr("errors.unknown", "Unknown error")
+                lines.append(f"- {name} : {reason}")
+        elif self.skipped:
+            lines.extend(["", self._tr("report.skipped_header", "Skipped:")])
+            for entity_id in self.skipped:
+                lines.append(f"- {self._entity_label(entity_id)}")
+
         if unavailable_entities:
             lines.extend(["", self._tr("report.unavailable_header", "Unavailable / update status unknown:")])
             for entity_id in unavailable_entities:
@@ -1510,6 +1590,8 @@ class CampaignManager:
         result = "stopped" if stopped else ("error" if self.failed else "success")
         self.end_ts = int(time.time())
         self.duration_s = self._active_elapsed_s(self.end_ts)
+        attempted = self._processed_flash_count()
+        self.avg_duration_s = round(self.duration_s / attempted, 1) if attempted > 0 else 0
         self._last_duration_refresh_tick = self.duration_s // _RUNTIME_REFRESH_INTERVAL_S
         message = self._build_summary_message(stopped=stopped)
 
@@ -1520,6 +1602,7 @@ class CampaignManager:
 
         self.last_report = message
         self.last_report_ts = self.end_ts
+        unavailable_entities = self._get_unavailable_update_entities_in_scope()
 
         self.hass.bus.async_fire(
             EVENT_CAMPAIGN_FINISHED,
@@ -1530,13 +1613,14 @@ class CampaignManager:
                 "failed": len(self.failed),
                 "skipped": len(self.skipped),
                 "remaining": len(self.remaining),
-                "unavailable": len(self._get_unavailable_update_entities_in_scope()),
-                "unavailable_entities": list(self._get_unavailable_update_entities_in_scope()),
+                "unavailable": len(unavailable_entities),
+                "unavailable_entities": list(unavailable_entities),
                 "duration_s": self.duration_s,
                 "avg_duration_s": self.avg_duration_s,
                 "throttle_enabled": self.throttle_enabled,
                 "failed_entities": list(self.failed),
                 "failed_details": list(self.failed_details),
+                "skipped_details": list(self.skipped_details),
                 "last_processed_entity": self.last_processed_entity,
                 "last_report": message,
             },
@@ -1552,6 +1636,8 @@ class CampaignManager:
         self.index = 0
         self.eta_s = 0
         self.delay_s = 0
+        self.waiting_next_device = False
+        self.waiting_next_device_remaining_s = 0
         self.current_error = ""
         self.current_error_level = ""
 
@@ -1563,6 +1649,7 @@ class CampaignManager:
         self.failed = []
         self.failed_details = []
         self.skipped = []
+        self.skipped_details = []
         self.current = ""
         self.current_update_entity = ""
         self.total = 0
@@ -1575,6 +1662,8 @@ class CampaignManager:
         self.avg_duration_s = 0
         self.eta_s = 0
         self.delay_s = 0
+        self.waiting_next_device = False
+        self.waiting_next_device_remaining_s = 0
         self.cpu = None
         self.temp = None
         self.load_1m = None

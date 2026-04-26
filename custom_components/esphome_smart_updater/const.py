@@ -40,6 +40,7 @@ BINARY_SENSOR_PREVIEW_AVAILABLE_UNIQUE_ID = "esphome_smart_updater_preview_avail
 BINARY_SENSOR_CPU_METRIC_VISIBLE_UNIQUE_ID = "esphome_smart_updater_cpu_metric_visible"
 BINARY_SENSOR_TEMP_METRIC_VISIBLE_UNIQUE_ID = "esphome_smart_updater_temp_metric_visible"
 BINARY_SENSOR_LOAD_METRIC_VISIBLE_UNIQUE_ID = "esphome_smart_updater_load_metric_visible"
+BINARY_SENSOR_WAITING_NEXT_DEVICE_UNIQUE_ID = "esphome_smart_updater_waiting_next_device"
 
 BUTTON_START_UNIQUE_ID = "esu_start"
 BUTTON_PAUSE_UNIQUE_ID = "esu_pause"
