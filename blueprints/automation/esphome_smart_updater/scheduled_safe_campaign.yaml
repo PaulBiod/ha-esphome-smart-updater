@@ -8,7 +8,7 @@ blueprint:
     This blueprint requires the "ESPHome Smart Updater" custom integration.
     It will not work without it.
 
-    👉 Install the integration:
+    Install the integration:
     https://github.com/PaulBiod/ha-esphome-smart-updater
 
     Features:
@@ -17,6 +17,32 @@ blueprint:
       - Optionally skip first monthly releases (.0)
       - Optionally prevent large version jumps
       - Optional notification when the campaign starts
+
+    Basic examples for the Notification action:
+
+    Mobile notification:
+
+      action: notify.mobile_app_your_phone
+      data:
+        title: ESPHome Smart Updater
+        message: "Update campaign started."
+
+    Alexa announcement:
+
+      action: notify.alexa_media_your_echo
+      data:
+        message: "ESPHome update campaign has started."
+        data:
+          type: announce
+
+    Google TTS:
+
+      action: tts.speak
+      target:
+        entity_id: tts.google_translate_en_com
+      data:
+        media_player_entity_id: media_player.your_speaker
+        message: "ESPHome update campaign started."
 
   domain: automation
 
@@ -29,7 +55,10 @@ blueprint:
 
     days:
       name: Days
-      description: Days of the week when the automation should run
+      description: >
+        Select the days when the automation should run.
+        All days are selected by default. If all days are already selected,
+        the dropdown below may appear empty because there are no remaining days to add.
       default:
         - mon
         - tue
@@ -90,10 +119,12 @@ blueprint:
     start_notification_action:
       name: Notification action
       description: >
-        Optional. Define one or more actions (mobile app, Alexa, TTS, etc.)
+        Optional. Define one or more actions to run before the campaign starts
+        (mobile notification, Alexa, Google TTS, persistent notification, etc.).
+        This is only used when "Notify when campaign starts" is enabled.
       default: []
       selector:
-        action:
+        action: {}
 
 mode: single
 
