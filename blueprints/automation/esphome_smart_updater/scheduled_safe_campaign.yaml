@@ -4,6 +4,13 @@ blueprint:
     Automatically start an ESPHome Smart Updater campaign at a scheduled time,
     with optional safety checks to reduce update risks.
 
+    ⚠️ Requirements:
+    This blueprint requires the "ESPHome Smart Updater" custom integration.
+    It will not work without it.
+
+    👉 Install the integration:
+    https://github.com/PaulBiod/ha-esphome-smart-updater
+
     Features:
       - Run on selected days at a specific time
       - Require a minimum number of pending updates
