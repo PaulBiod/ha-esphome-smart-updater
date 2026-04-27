@@ -6,11 +6,11 @@ with optional safety checks to reduce update risks.
 
 ```
 Features:
-- Run on selected days at a specific time
-- Require a minimum number of pending updates
-- Optionally skip first monthly releases (.0)
-- Optionally prevent large version jumps
-- Optional notification when the campaign starts
+  - Run on selected days at a specific time
+  - Require a minimum number of pending updates
+  - Optionally skip first monthly releases (.0)
+  - Optionally prevent large version jumps
+  - Optional notification when the campaign starts
 ```
 
 domain: automation
