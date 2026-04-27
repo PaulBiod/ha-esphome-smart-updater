@@ -1,0 +1,114 @@
+blueprint:
+  name: ESPHome Smart Updater — Campaign Finished Actions
+  description: >
+    Run custom actions when an ESPHome Smart Updater campaign finishes.
+
+    ⚠️ Requirements:
+    This blueprint requires the "ESPHome Smart Updater" custom integration.
+    It will not work without it.
+
+    Install the integration:
+    https://github.com/PaulBiod/ha-esphome-smart-updater
+
+    This blueprint reacts to the esphome_smart_updater_campaign_finished event.
+    It works regardless of how the campaign was started: scheduled blueprint,
+    manual start, service call, or restored campaign after a Home Assistant restart.
+
+    Available variables inside custom actions:
+      - esu_result
+      - esu_done
+      - esu_failed
+      - esu_skipped
+      - esu_unavailable
+      - esu_last_report
+
+  domain: automation
+
+  input:
+    notification_mode:
+      name: Notification mode
+      description: >
+        Choose when to run the notification action.
+        The notification action is optional and can be a mobile notification,
+        Alexa announcement, Google TTS, persistent notification, script, etc.
+      default: always
+      selector:
+        select:
+          options:
+            - label: Always
+              value: always
+            - label: Only when errors are detected
+              value: errors_only
+            - label: Never
+              value: never
+
+    notification_action:
+      name: Notification action
+      description: >
+        Optional. Define one or more actions to run according to the notification mode.
+        You can use the variables exposed by this blueprint in templates, for example:
+        {{ esu_last_report }}
+      default: []
+      selector:
+        action: {}
+
+    success_action:
+      name: Success action
+      description: >
+        Optional. Actions to run only when the campaign finishes without failed devices.
+      default: []
+      selector:
+        action: {}
+
+    error_action:
+      name: Error action
+      description: >
+        Optional. Actions to run only when the campaign finishes with one or more failed devices.
+      default: []
+      selector:
+        action: {}
+
+    always_action:
+      name: Always run action
+      description: >
+        Optional. Actions to run every time a campaign finishes, regardless of the result.
+      default: []
+      selector:
+        action: {}
+
+mode: queued
+max: 10
+
+trigger:
+  - platform: event
+    event_type: esphome_smart_updater_campaign_finished
+
+action:
+  - variables:
+      notification_mode_value: !input notification_mode
+      esu_result: "{{ trigger.event.data.result | default('unknown') }}"
+      esu_done: "{{ trigger.event.data.done | default(0) | int(0) }}"
+      esu_failed: "{{ trigger.event.data.failed | default(0) | int(0) }}"
+      esu_skipped: "{{ trigger.event.data.skipped | default(0) | int(0) }}"
+      esu_unavailable: "{{ trigger.event.data.unavailable | default(0) | int(0) }}"
+      esu_last_report: >-
+        {{ trigger.event.data.last_report
+          | default(state_attr('sensor.esphome_smart_updater_campaign', 'last_report'), true)
+          | default('', true) }}
+
+  - choose:
+      - conditions:
+          - condition: template
+            value_template: "{{ esu_failed | int(0) > 0 }}"
+        sequence: !input error_action
+    default: !input success_action
+
+  - choose:
+      - conditions:
+          - condition: template
+            value_template: >
+              {{ notification_mode_value == 'always'
+                 or (notification_mode_value == 'errors_only' and esu_failed | int(0) > 0) }}
+        sequence: !input notification_action
+
+  - sequence: !input always_action
