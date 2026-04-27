@@ -163,26 +163,8 @@ With these blueprints, you can:
 - Run custom actions when a campaign finishes  
 - Send notifications, trigger scripts, control devices, and more  
 
-👉 You can fully customize what happens:
-- before a campaign starts  
-- after it finishes (success, errors, or both)
-
-### 💡 Examples
-
-- Send a mobile notification when updates start  
-- Announce results via Alexa or Google TTS  
-- Turn a light red if errors occur  
-- Trigger any Home Assistant automation or script  
-
----
-
-### 👉 Get started
-
-[![Import Blueprints](https://my.home-assistant.io/badges/blueprint_import.svg)](https://github.com/PaulBiod/ha-esphome-smart-updater/tree/main/blueprints)
-
-👉 Full documentation and examples:  
+👉 Full documentation, examples and one-click import buttons:  
 https://github.com/PaulBiod/ha-esphome-smart-updater/tree/main/blueprints/automation/esphome_smart_updater
-
 
 ## 🛠 Installation
 
