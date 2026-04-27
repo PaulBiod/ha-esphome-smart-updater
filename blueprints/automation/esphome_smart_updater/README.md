@@ -15,7 +15,7 @@ This repository provides ready-to-use Home Assistant blueprints for the
 Automatically start update campaigns with safety checks.
 
 👉 **Add directly to Home Assistant:**  
-https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https://raw.githubusercontent.com/PaulBiod/ha-esphome-smart-updater/main/blueprints/automation/esphome_smart_updater/scheduled_safe_campaign.yaml
+[![Open your Home Assistant instance and import the blueprint](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https://raw.githubusercontent.com/PaulBiod/ha-esphome-smart-updater/main/blueprints/automation/esphome_smart_updater/scheduled_safe_campaign.yaml)
 
 👉 **Raw import link:**  
 https://raw.githubusercontent.com/PaulBiod/ha-esphome-smart-updater/main/blueprints/automation/esphome_smart_updater/scheduled_safe_campaign.yaml
@@ -73,7 +73,7 @@ data:
 Run custom actions when a campaign finishes.
 
 👉 **Add directly to Home Assistant:**  
-https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https://raw.githubusercontent.com/PaulBiod/ha-esphome-smart-updater/main/blueprints/automation/esphome_smart_updater/campaign_finished_actions.yaml
+[![Open your Home Assistant instance and import the blueprint](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https://raw.githubusercontent.com/PaulBiod/ha-esphome-smart-updater/main/blueprints/automation/esphome_smart_updater/campaign_finished_actions.yaml)
 
 👉 **Raw import link:**  
 https://raw.githubusercontent.com/PaulBiod/ha-esphome-smart-updater/main/blueprints/automation/esphome_smart_updater/campaign_finished_actions.yaml
