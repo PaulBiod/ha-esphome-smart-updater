@@ -150,6 +150,40 @@ Repeat this for each ESPHome device you want to include in the campaign.
 
 ![Enable ESPHome firmware entity](images/micrologiciel.jpg)
 
+
+## 🚀 Blueprints
+
+ESPHome Smart Updater includes ready-to-use Home Assistant blueprints  
+to automate update workflows without writing YAML.
+
+With these blueprints, you can:
+
+- Automatically start update campaigns at scheduled times  
+- Apply safety rules (skip `.0` releases, limit version jumps, etc.)  
+- Run custom actions when a campaign finishes  
+- Send notifications, trigger scripts, control devices, and more  
+
+👉 You can fully customize what happens:
+- before a campaign starts  
+- after it finishes (success, errors, or both)
+
+### 💡 Examples
+
+- Send a mobile notification when updates start  
+- Announce results via Alexa or Google TTS  
+- Turn a light red if errors occur  
+- Trigger any Home Assistant automation or script  
+
+---
+
+### 👉 Get started
+
+[![Import Blueprints](https://my.home-assistant.io/badges/blueprint_import.svg)](https://github.com/PaulBiod/ha-esphome-smart-updater/tree/main/blueprints)
+
+👉 Full documentation and examples:  
+https://github.com/PaulBiod/ha-esphome-smart-updater/tree/main/blueprints/automation/esphome_smart_updater
+
+
 ## 🛠 Installation
 
 ### 🔘 Option 1 — One-click install
