@@ -149,7 +149,7 @@ Repeat this for each ESPHome device you want to include in the campaign.
 ### Example
 
 ![Enable ESPHome firmware entity](images/micrologiciel.jpg)
-
+<br><br>
 ---
 
 ## 🚀 Blueprints
@@ -168,7 +168,7 @@ With these blueprints, you can:
 https://github.com/PaulBiod/ha-esphome-smart-updater/tree/main/blueprints/automation/esphome_smart_updater
 
 ---
-
+<br><br>
 ## 🛠 Installation
 
 ### 🔘 Option 1 — One-click install
