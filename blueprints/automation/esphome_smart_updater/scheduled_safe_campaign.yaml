@@ -1,43 +1,29 @@
 blueprint:
-name: ESPHome Smart Updater — Scheduled Safe Campaign
-description: >
-Automatically start an ESPHome Smart Updater campaign at a scheduled time,
-with optional safety checks to reduce update risks.
+  name: ESPHome Smart Updater — Scheduled Safe Campaign
+  description: >
+    Automatically start an ESPHome Smart Updater campaign at a scheduled time,
+    with optional safety checks to reduce update risks.
 
-```
-Features:
-  - Run on selected days at a specific time
-  - Require a minimum number of pending updates
-  - Optionally skip first monthly releases (.0)
-  - Optionally prevent large version jumps
-  - Optional notification when the campaign starts
-```
+    Features:
+      - Run on selected days at a specific time
+      - Require a minimum number of pending updates
+      - Optionally skip first monthly releases (.0)
+      - Optionally prevent large version jumps
+      - Optional notification when the campaign starts
 
-domain: automation
+  domain: automation
 
-input:
-trigger_time:
-name: Time
-description: Time of day to trigger the automation
-selector:
-time:
+  input:
+    trigger_time:
+      name: Time
+      description: Time of day to trigger the automation
+      selector:
+        time:
 
-```
-days:
-  name: Days
-  description: Days of the week when the automation should run
-  default:
-    - mon
-    - tue
-    - wed
-    - thu
-    - fri
-    - sat
-    - sun
-  selector:
-    select:
-      multiple: true
-      options:
+    days:
+      name: Days
+      description: Days of the week when the automation should run
+      default:
         - mon
         - tue
         - wed
@@ -45,133 +31,135 @@ days:
         - fri
         - sat
         - sun
+      selector:
+        select:
+          multiple: true
+          options:
+            - mon
+            - tue
+            - wed
+            - thu
+            - fri
+            - sat
+            - sun
 
-min_updates:
-  name: Minimum number of updates
-  description: Only start the campaign if at least this many updates are available
-  default: 1
-  selector:
-    number:
-      min: 1
-      max: 50
-      step: 1
+    min_updates:
+      name: Minimum number of updates
+      description: Only start the campaign if at least this many updates are available
+      default: 1
+      selector:
+        number:
+          min: 1
+          max: 50
+          step: 1
 
-skip_first_release:
-  name: Skip first monthly release (.0)
-  description: >
-    If enabled, versions ending in ".0" (first release of the month) will be skipped
-  default: true
-  selector:
-    boolean:
+    skip_first_release:
+      name: Skip first monthly release (.0)
+      description: >
+        If enabled, versions ending in ".0" (first release of the month) will be skipped
+      default: true
+      selector:
+        boolean:
 
-max_version_gap:
-  name: Maximum version gap (months)
-  description: >
-    Prevent automatic updates if the version difference is too large
-    (e.g. from 2025.12.x to 2026.4.x)
-  default: 1
-  selector:
-    number:
-      min: 0
-      max: 12
-      step: 1
+    max_version_gap:
+      name: Maximum version gap (months)
+      description: >
+        Prevent automatic updates if the version difference is too large
+        (e.g. from 2025.12.x to 2026.4.x)
+      default: 1
+      selector:
+        number:
+          min: 0
+          max: 12
+          step: 1
 
-notify_on_start:
-  name: Notify when campaign starts
-  description: Send a notification when the campaign begins
-  default: false
-  selector:
-    boolean:
+    notify_on_start:
+      name: Notify when campaign starts
+      description: Send a notification when the campaign begins
+      default: false
+      selector:
+        boolean:
 
-start_notification_action:
-  name: Notification action
-  description: >
-    Optional. Define one or more actions (mobile app, Alexa, TTS, etc.)
-  default: []
-  selector:
-    action:
-```
+    start_notification_action:
+      name: Notification action
+      description: >
+        Optional. Define one or more actions (mobile app, Alexa, TTS, etc.)
+      default: []
+      selector:
+        action:
 
 mode: single
 
 trigger:
-
-* platform: time
-  at: !input trigger_time
+  - platform: time
+    at: !input trigger_time
 
 condition:
+  - condition: template
+    value_template: >
+      {% set today = now().strftime('%a').lower()[:3] %}
+      {{ today in !input days }}
 
-* condition: template
-  value_template: >
-  {% set today = now().strftime('%a').lower()[:3] %}
-  {{ today in !input days }}
+  - condition: template
+    value_template: >
+      {{ states('sensor.esphome_smart_updater_campaign') != 'running' }}
 
-* condition: template
-  value_template: >
-  {{ states('sensor.esphome_smart_updater_campaign') != 'running' }}
+  - condition: template
+    value_template: >
+      {{ states('sensor.esphome_smart_updater_pending_updates') | int(0) >= !input min_updates }}
 
-* condition: template
-  value_template: >
-  {{ states('sensor.esphome_smart_updater_pending_updates') | int(0) >= !input min_updates }}
+  - condition: template
+    value_template: >
+      {% set skip = !input skip_first_release %}
+      {% set max_gap = !input max_version_gap | int %}
+      {% set updates = expand(integration_entities('esphome'))
+        | selectattr('entity_id','match','^update.')
+        | selectattr('state','eq','on')
+        | list %}
 
-* condition: template
-  value_template: >
-  {% set skip = !input skip_first_release %}
-  {% set max_gap = !input max_version_gap | int %}
-  {% set updates = expand(integration_entities('esphome'))
-  | selectattr('entity_id','match','^update.')
-  | selectattr('state','eq','on')
-  | list %}
-
-  {% if updates | count == 0 %}
-  false
-  {% else %}
-  {% set valid = namespace(ok=true) %}
-  {% for u in updates %}
-  {% set latest = u.attributes.latest_version | default('') %}
-  {% set installed = u.attributes.installed_version | default('') %}
-
-  ```
-    {% if latest == '' or installed == '' %}
-      {% set valid.ok = false %}
-    {% else %}
-      {% set l = latest.split('.') %}
-      {% set i = installed.split('.') %}
-
-      {% if l | count < 3 or i | count < 3 %}
-        {% set valid.ok = false %}
+      {% if updates | count == 0 %}
+        false
       {% else %}
-        {% set l_year = l[0] | int %}
-        {% set l_month = l[1] | int %}
-        {% set l_patch = l[2] | int %}
-        {% set i_year = i[0] | int %}
-        {% set i_month = i[1] | int %}
+        {% set valid = namespace(ok=true) %}
+        {% for u in updates %}
+          {% set latest = u.attributes.latest_version | default('') %}
+          {% set installed = u.attributes.installed_version | default('') %}
 
-        {% set gap = (l_year * 12 + l_month) - (i_year * 12 + i_month) %}
+          {% if latest == '' or installed == '' %}
+            {% set valid.ok = false %}
+          {% else %}
+            {% set l = latest.split('.') %}
+            {% set i = installed.split('.') %}
 
-        {% if skip and l_patch == 0 %}
-          {% set valid.ok = false %}
-        {% endif %}
+            {% if l | count < 3 or i | count < 3 %}
+              {% set valid.ok = false %}
+            {% else %}
+              {% set l_year = l[0] | int %}
+              {% set l_month = l[1] | int %}
+              {% set l_patch = l[2] | int %}
+              {% set i_year = i[0] | int %}
+              {% set i_month = i[1] | int %}
 
-        {% if gap > max_gap %}
-          {% set valid.ok = false %}
-        {% endif %}
+              {% set gap = (l_year * 12 + l_month) - (i_year * 12 + i_month) %}
+
+              {% if skip and l_patch == 0 %}
+                {% set valid.ok = false %}
+              {% endif %}
+
+              {% if gap > max_gap %}
+                {% set valid.ok = false %}
+              {% endif %}
+            {% endif %}
+          {% endif %}
+        {% endfor %}
+        {{ valid.ok }}
       {% endif %}
-    {% endif %}
-  {% endfor %}
-  {{ valid.ok }}
-  ```
-
-  {% endif %}
 
 action:
+  - choose:
+      - conditions:
+          - condition: template
+            value_template: "{{ !input notify_on_start }}"
+        sequence: !input start_notification_action
 
-* choose:
-
-  * conditions:
-
-    * condition: template
-      value_template: "{{ !input notify_on_start }}"
-      sequence: !input start_notification_action
-
-* service: esphome_smart_updater.start_campaign
+  - service: esphome_smart_updater.start_campaign
