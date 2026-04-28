@@ -11,6 +11,10 @@ blueprint:
     Install the integration:
     https://github.com/PaulBiod/ha-esphome-smart-updater
 
+    ⚠️ Required fields:
+      - Time
+      - Days
+
     Features:
       - Run on selected days at a specific time
       - Require a minimum number of pending updates
@@ -49,13 +53,220 @@ blueprint:
   input:
     trigger_time:
       name: Time
-      description: Time of day to trigger the automation. Required.
+      description: >
+        ⚠️ Required — Time of day to trigger the automation.
       selector:
         time:
 
     days:
       name: Days
-      description: Select the days when the automation should run. Required.
+      description: >
+        ⚠️ Required — Select at least one day when the automation should run.
+      selector:
+        select:
+          multiple: true
+          options:
+            - mon
+            - tue
+            - wed
+            - thu
+            - fri
+            - sat
+            - sun
+
+    min_updates:
+      name: Minimum number of updates
+      description: Only start the campaign if at least this many updates are available
+      default: 1
+      selector:
+        number:
+          min: 1
+          max: 50
+          step: 1
+
+    skip_first_release:
+      name: Skip first monthly release (.0)
+      description: >
+        If enabled, versions ending in ".0" (first release of the month) will be skipped
+      default: true
+      selector:
+        boolean:
+
+    max_version_gap:
+      name: Maximum version gap (months)
+      description: >
+        Prevent automatic updates if the version difference is too large
+        (e.g. from 2025.12.x to 2026.4.x)
+      default: 1
+      selector:
+        number:
+          min: 0
+          max: 12
+          step: 1
+
+    notify_on_start:
+      name: Notify when campaign starts
+      description: Send a notification when the campaign begins
+      default: false
+      selector:
+        boolean:
+
+    start_notification_action:
+      name: Notification action
+      description: >
+        Optional. Define one or more actions to run before the campaign starts
+        (mobile notification, Alexa, Google TTS, persistent notification, etc.).
+        This is only used when "Notify when campaign starts" is enabled.
+      default: []
+      selector:
+        action: {}
+
+mode: single
+
+variables:
+  days_input: !input days
+  min_updates_input: !input min_updates
+  skip_first_release_input: !input skip_first_release
+  max_version_gap_input: !input max_version_gap
+  notify_on_start_input: !input notify_on_start
+
+trigger:
+  - platform: time
+    at: !input trigger_time
+
+condition:
+  - condition: template
+    value_template: >
+      {% set today = now().strftime('%a').lower()[:3] %}
+      {{ today in days_input }}
+
+  - condition: template
+    value_template: >
+      {{ states('sensor.esphome_smart_updater_campaign') != 'running' }}
+
+  - condition: template
+    value_template: >
+      {{ states('sensor.esphome_smart_updater_pending_updates') | int(0) >= min_updates_input | int(0) }}
+
+  - condition: template
+    value_template: >
+      {% set skip = skip_first_release_input %}
+      {% set max_gap = max_version_gap_input | int(0) %}
+      {% set updates = expand(integration_entities('esphome'))
+        | selectattr('entity_id','match','^update.')
+        | selectattr('state','eq','on')
+        | list %}
+
+      {% if updates | count == 0 %}
+        false
+      {% else %}
+        {% set valid = namespace(ok=true) %}
+        {% for u in updates %}
+          {% set latest = u.attributes.latest_version | default('') %}
+          {% set installed = u.attributes.installed_version | default('') %}
+
+          {% if latest == '' or installed == '' %}
+            {% set valid.ok = false %}
+          {% else %}
+            {% set l = latest.split('.') %}
+            {% set i = installed.split('.') %}
+
+            {% if l | count < 3 or i | count < 3 %}
+              {% set valid.ok = false %}
+            {% else %}
+              {% set l_year = l[0] | int %}
+              {% set l_month = l[1] | int %}
+              {% set l_patch = l[2] | int %}
+              {% set i_year = i[0] | int %}
+              {% set i_month = i[1] | int %}
+
+              {% set gap = (l_year * 12 + l_month) - (i_year * 12 + i_month) %}
+
+              {% if skip and l_patch == 0 %}
+                {% set valid.ok = false %}
+              {% endif %}
+
+              {% if gap > max_gap %}
+                {% set valid.ok = false %}
+              {% endif %}
+            {% endif %}
+          {% endif %}
+        {% endfor %}
+        {{ valid.ok }}
+      {% endif %}
+
+action:
+  - choose:
+      - conditions:
+          - condition: template
+            value_template: "{{ notify_on_start_input }}"
+        sequence: !input start_notification_action
+
+  - service: esphome_smart_updater.start_campaign
+blueprint:
+  name: ESPHome Smart Updater — Scheduled Safe Campaign
+  description: >
+    Automatically start an ESPHome Smart Updater campaign at a scheduled time,
+    with optional safety checks to reduce update risks.
+
+    ⚠️ Requirements:
+    This blueprint requires the "ESPHome Smart Updater" custom integration.
+    It will not work without it.
+
+    Install the integration:
+    https://github.com/PaulBiod/ha-esphome-smart-updater
+
+    ⚠️ Required fields:
+      - Time
+      - Days
+
+    Features:
+      - Run on selected days at a specific time
+      - Require a minimum number of pending updates
+      - Optionally skip first monthly releases (.0)
+      - Optionally prevent large version jumps
+      - Optional notification when the campaign starts
+
+    Basic examples for the Notification action:
+
+    Mobile notification:
+
+      action: notify.mobile_app_your_phone
+      data:
+        title: ESPHome Smart Updater
+        message: "Update campaign started."
+
+    Alexa announcement:
+
+      action: notify.alexa_media_your_echo
+      data:
+        message: "ESPHome update campaign has started."
+        data:
+          type: announce
+
+    Google TTS:
+
+      action: tts.speak
+      target:
+        entity_id: tts.google_translate_en_com
+      data:
+        media_player_entity_id: media_player.your_speaker
+        message: "ESPHome update campaign started."
+
+  domain: automation
+
+  input:
+    trigger_time:
+      name: Time
+      description: >
+        ⚠️ Required — Time of day to trigger the automation.
+      selector:
+        time:
+
+    days:
+      name: Days
+      description: >
+        ⚠️ Required — Select at least one day when the automation should run.
       selector:
         select:
           multiple: true
