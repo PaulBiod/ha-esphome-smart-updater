@@ -17,6 +17,11 @@ blueprint:
     This blueprint reacts to the esphome_smart_updater_campaign_finished event.
     It works regardless of how the campaign was started.
 
+    Logic:
+      - If at least one device failed, the Error action is executed.
+      - If no device failed, the Success action is executed.
+      - The Always run action is executed every time, after success/error.
+
     Available variables:
       - esu_result
       - esu_done
@@ -52,39 +57,32 @@ blueprint:
   domain: automation
 
   input:
-    notification_mode:
-      name: Notification mode
-      default: always
-      selector:
-        select:
-          options:
-            - label: Always
-              value: always
-            - label: Only when errors are detected
-              value: errors_only
-            - label: Never
-              value: never
-
-    notification_action:
-      name: Notification action
-      default: []
-      selector:
-        action: {}
-
     success_action:
       name: Success action
+      description: >
+        Optional. Actions to run only when the campaign finishes with no failed devices
+        (esu_failed = 0). Skipped or unavailable devices do not trigger this as an error
+        unless the integration reports them as failed.
       default: []
       selector:
         action: {}
 
     error_action:
       name: Error action
+      description: >
+        Optional. Actions to run when the campaign finishes with at least one failed device
+        (esu_failed > 0). Use this for urgent notifications, TTS announcements,
+        warning lights, recovery scripts, etc.
       default: []
       selector:
         action: {}
 
     always_action:
       name: Always run action
+      description: >
+        Optional. Actions to run every time a campaign finishes, regardless of the result.
+        This runs after the Success action or Error action. Use it for common cleanup,
+        logging, helper updates, webhooks, or a generic final notification.
       default: []
       selector:
         action: {}
@@ -98,7 +96,6 @@ trigger:
 
 action:
   - variables:
-      notification_mode_value: !input notification_mode
       esu_result: "{{ trigger.event.data.result | default('unknown') }}"
       esu_done: "{{ trigger.event.data.done | default(0) | int(0) }}"
       esu_failed: "{{ trigger.event.data.failed | default(0) | int(0) }}"
@@ -115,13 +112,5 @@ action:
             value_template: "{{ esu_failed | int(0) > 0 }}"
         sequence: !input error_action
     default: !input success_action
-
-  - choose:
-      - conditions:
-          - condition: template
-            value_template: >
-              {{ notification_mode_value == 'always'
-                 or (notification_mode_value == 'errors_only' and esu_failed | int(0) > 0) }}
-        sequence: !input notification_action
 
   - sequence: !input always_action
