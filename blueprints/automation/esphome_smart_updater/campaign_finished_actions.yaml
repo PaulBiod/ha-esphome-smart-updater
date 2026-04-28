@@ -23,12 +23,22 @@ blueprint:
       - The Always run action is executed every time, after success/error.
 
     Available variables:
-      - esu_result
-      - esu_done
-      - esu_failed
-      - esu_skipped
-      - esu_unavailable
-      - esu_last_report
+      - esu_result: >
+          Overall campaign result (string). Typically "success" or "error".
+      - esu_done: >
+          Number of devices successfully updated.
+      - esu_failed: >
+          Number of devices that failed to update (timeouts, errors, etc.).
+          ⚠️ If this is > 0, the Error action will run.
+      - esu_skipped: >
+          Number of devices skipped (not eligible, already updated, etc.).
+          Not considered an error.
+      - esu_unavailable: >
+          Number of devices unavailable during the campaign.
+          Usually not counted as failures unless handled as such by the integration.
+      - esu_last_report: >
+          Full human-readable report of the campaign (same as the persistent notification).
+          Recommended for notifications.
 
     Example (mobile / Telegram):
 
