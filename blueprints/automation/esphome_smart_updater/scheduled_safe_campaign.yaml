@@ -49,24 +49,13 @@ blueprint:
   input:
     trigger_time:
       name: Time
-      description: Time of day to trigger the automation
+      description: Time of day to trigger the automation. Required.
       selector:
         time:
 
     days:
       name: Days
-      description: >
-        Select the days when the automation should run.
-        All days are selected by default. If all days are already selected,
-        the dropdown below may appear empty because there are no remaining days to add.
-      default:
-        - mon
-        - tue
-        - wed
-        - thu
-        - fri
-        - sat
-        - sun
+      description: Select the days when the automation should run. Required.
       selector:
         select:
           multiple: true
@@ -128,6 +117,13 @@ blueprint:
 
 mode: single
 
+variables:
+  days_input: !input days
+  min_updates_input: !input min_updates
+  skip_first_release_input: !input skip_first_release
+  max_version_gap_input: !input max_version_gap
+  notify_on_start_input: !input notify_on_start
+
 trigger:
   - platform: time
     at: !input trigger_time
@@ -136,7 +132,7 @@ condition:
   - condition: template
     value_template: >
       {% set today = now().strftime('%a').lower()[:3] %}
-      {{ today in !input days }}
+      {{ today in days_input }}
 
   - condition: template
     value_template: >
@@ -144,12 +140,12 @@ condition:
 
   - condition: template
     value_template: >
-      {{ states('sensor.esphome_smart_updater_pending_updates') | int(0) >= !input min_updates }}
+      {{ states('sensor.esphome_smart_updater_pending_updates') | int(0) >= min_updates_input | int(0) }}
 
   - condition: template
     value_template: >
-      {% set skip = !input skip_first_release %}
-      {% set max_gap = !input max_version_gap | int %}
+      {% set skip = skip_first_release_input %}
+      {% set max_gap = max_version_gap_input | int(0) %}
       {% set updates = expand(integration_entities('esphome'))
         | selectattr('entity_id','match','^update.')
         | selectattr('state','eq','on')
@@ -197,7 +193,7 @@ action:
   - choose:
       - conditions:
           - condition: template
-            value_template: "{{ !input notify_on_start }}"
+            value_template: "{{ notify_on_start_input }}"
         sequence: !input start_notification_action
 
   - service: esphome_smart_updater.start_campaign
