@@ -51,7 +51,18 @@ blueprint:
 
       action: notify.alexa_media_your_echo
       data:
-        message: "{{ esu_last_report }}"
+        message:  >
+          ESPHome update campaign just finished.
+          Result: {{ esu_result }}.
+          {{ esu_done }} devices updated successfully,
+          {{ esu_failed }} failed,
+          {{ esu_skipped }} skipped,
+          {{ esu_unavailable }} unavailable.ESPHome update campaign just finished.
+          Result: {{ esu_result }}.
+          {{ esu_done }} devices updated successfully,
+          {{ esu_failed }} failed,
+          {{ esu_skipped }} skipped,
+          {{ esu_unavailable }} unavailable.
         data:
           type: announce
 
