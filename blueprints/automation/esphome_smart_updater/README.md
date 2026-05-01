@@ -215,9 +215,18 @@ This ensures:
 
 ---
 
-# 🚀 Tip
+# 🚀 Tip #1
 
 You can combine both blueprints:
 
 - Blueprint #1 → automatically start campaigns  
 - Blueprint #2 → react to results (notify, alert, automation, etc.)
+
+# 🚀 Tip #2
+
+Update a few devices per day:
+
+- On blueprint #1 select all days (and choose a start hour)
+- On the integration configuration, just select max_items : 5
+- if you have 50 devices, each day 5 of them will be updated
+- no more hassle !
