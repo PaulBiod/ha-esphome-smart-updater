@@ -4,11 +4,10 @@
 
 <p align="center">
   <img src="https://img.shields.io/github/v/release/PaulBiod/ha-esphome-smart-updater?style=for-the-badge" />
-  <img src="https://img.shields.io/badge/HACS-Custom-orange?style=for-the-badge" />
+  <img src="https://img.shields.io/badge/HACS-Default-blue?style=for-the-badge" />
   <img src="https://img.shields.io/badge/Home%20Assistant-Integration-blue?style=for-the-badge" />
   <img src="https://img.shields.io/github/license/PaulBiod/ha-esphome-smart-updater?style=for-the-badge" />
   <img src="https://img.shields.io/github/stars/PaulBiod/ha-esphome-smart-updater?style=for-the-badge" />
-  <img src="https://img.shields.io/github/downloads/PaulBiod/ha-esphome-smart-updater/total?style=for-the-badge" />
 </p>
 
 
